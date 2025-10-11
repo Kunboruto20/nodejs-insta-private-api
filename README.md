@@ -1,7 +1,8 @@
 # nodejs-insta-private-api
-VERSION 3.3.2 Update library for latest Instagram Version 
+VERSION 3.3.3 Update library for latest Instagram Version 
 A pure JavaScript Instagram Private API client in written in CommonJS without TypeScript.
 
+I created a new repository because that old repository was deleted by Github, the new library repository is here https://github.com/Kunboruto20/nodejs-insta-private-api.git
 [![npm version](https://badge.fury.io/js/nodejs-insta-private-api.svg)](https://www.npmjs.com/package/nodejs-insta-private-api)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
