@@ -20,11 +20,11 @@ class DirectThreadRepository extends Repository {
     } catch (error) {
       const shouldRetry =
         (error.data?.error_type === 'server_error' ||
-         error.data?.error_type === 'rate_limited') &&
+          error.data?.error_type === 'rate_limited') &&
         retries < this.maxRetries;
 
       if (shouldRetry) {
-        const delay = 1000 * (retries + 1);
+        const delay = 500 * 2 ** retries; // exponential backoff
         if (process.env.DEBUG) console.log(`[DEBUG] Retrying after ${delay}ms due to ${error.data?.error_type}`);
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.requestWithRetry(requestFn, retries + 1);
@@ -36,7 +36,6 @@ class DirectThreadRepository extends Repository {
 
   /**
    * Send a text message to a group thread
-   * @param {Object} options - { threadId, message }
    */
   async sendToGroup(options) {
     const { threadId, message } = options;
@@ -51,7 +50,6 @@ class DirectThreadRepository extends Repository {
 
   /**
    * Fetch a specific thread by its ID
-   * @param {string} threadId
    */
   async getThread(threadId) {
     return this.requestWithRetry(async () => {
@@ -65,7 +63,6 @@ class DirectThreadRepository extends Repository {
 
   /**
    * Fetch threads by participants
-   * @param {Array} recipientUsers
    */
   async getByParticipants(recipientUsers) {
     return this.requestWithRetry(async () => {
@@ -241,6 +238,116 @@ class DirectThreadRepository extends Repository {
       });
       return response.body;
     });
+  }
+
+  /** ---------------- NEW FEATURES ---------------- */
+
+  /**
+   * React to a message
+   */
+  async reactToMessage(threadId, itemId, reaction) {
+    if (!threadId || !itemId || !reaction) throw new Error('threadId, itemId, and reaction are required');
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/items/${itemId}/like/`,
+        method: 'POST',
+        form: { _csrftoken: this.client.state.cookieCsrfToken, _uuid: this.client.state.uuid, reaction },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Forward a message to another thread
+   */
+  async forwardMessage(threadId, itemId, recipientThreadId) {
+    if (!threadId || !itemId || !recipientThreadId) throw new Error('threadId, itemId, and recipientThreadId are required');
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: '/api/v1/direct_v2/threads/broadcast/text/',
+        method: 'POST',
+        form: this.client.request.sign({
+          text: '',
+          thread_ids: JSON.stringify([recipientThreadId]),
+          item_id: itemId,
+        }),
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Send messages to multiple threads at once
+   */
+  async sendBulk(threadIds, message) {
+    if (!Array.isArray(threadIds) || !message) throw new Error('threadIds array and message are required');
+    return Promise.all(threadIds.map(id => this.sendToGroup({ threadId: id, message })));
+  }
+
+  /**
+   * Send a scheduled message
+   */
+  async sendScheduled(options, date) {
+    if (!options || !date) throw new Error('options and date are required');
+    const delay = date - Date.now();
+    if (delay <= 0) throw new Error('Scheduled date must be in the future');
+    setTimeout(() => this.sendToGroup(options), delay);
+  }
+
+  /**
+   * Typing indicator
+   */
+  async sendTyping(threadId, duration = 3000) {
+    if (!threadId) throw new Error('threadId is required');
+    await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/direct_v2/threads/typing_indicator/',
+      form: { _csrftoken: this.client.state.cookieCsrfToken, _uuid: this.client.state.uuid, thread_id: threadId, action: 'typing_on' },
+    });
+    setTimeout(async () => {
+      await this.client.request.send({
+        method: 'POST',
+        url: '/api/v1/direct_v2/threads/typing_indicator/',
+        form: { _csrftoken: this.client.state.cookieCsrfToken, _uuid: this.client.state.uuid, thread_id: threadId, action: 'typing_off' },
+      });
+    }, duration);
+  }
+
+  /**
+   * Pin a thread
+   */
+  async pin(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/pin/`,
+        method: 'POST',
+        form: { _csrftoken: this.client.state.cookieCsrfToken, _uuid: this.client.state.uuid },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Unpin a thread
+   */
+  async unpin(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/unpin/`,
+        method: 'POST',
+        form: { _csrftoken: this.client.state.cookieCsrfToken, _uuid: this.client.state.uuid },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Mark all items in a thread as seen
+   */
+  async markAllSeen(threadId) {
+    const thread = await this.getThread(threadId);
+    const items = thread.items || [];
+    return Promise.all(items.map(item => this.markItemSeen(threadId, item.item_id)));
   }
 }
 
