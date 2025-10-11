@@ -1,5 +1,6 @@
 const Repository = require('../core/repository');
-const fs = require('fs');
+const fs = require('fs').promises;
+const path = require('path');
 
 class DirectRepository extends Repository {
   constructor(client) {
@@ -20,11 +21,11 @@ class DirectRepository extends Repository {
     } catch (error) {
       const shouldRetry =
         (error.data?.error_type === 'server_error' ||
-         error.data?.error_type === 'rate_limited') &&
+          error.data?.error_type === 'rate_limited') &&
         retries < this.maxRetries;
 
       if (shouldRetry) {
-        const delay = 1000 * (retries + 1);
+        const delay = 500 * 2 ** retries; // exponential backoff
         if (process.env.DEBUG) console.log(`[DEBUG] Retrying after ${delay}ms due to ${error.data?.error_type}`);
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.requestWithRetry(requestFn, retries + 1);
@@ -59,8 +60,9 @@ class DirectRepository extends Repository {
     const { to, imagePath } = options;
     if (!to || !imagePath) throw new Error('Recipient (to) and imagePath are required');
 
+    const resolvedPath = path.resolve(imagePath);
     return this.requestWithRetry(async () => {
-      const imageBuffer = fs.readFileSync(imagePath);
+      const imageBuffer = await fs.readFile(resolvedPath);
       const uploadResult = await this.client.upload.photo({ file: imageBuffer, uploadId: Date.now() });
       const user = await this.client.user.infoByUsername(to);
       const thread = await this.client.directThread.getByParticipants([user.pk]);
@@ -79,8 +81,9 @@ class DirectRepository extends Repository {
     const { to, videoPath } = options;
     if (!to || !videoPath) throw new Error('Recipient (to) and videoPath are required');
 
+    const resolvedPath = path.resolve(videoPath);
     return this.requestWithRetry(async () => {
-      const videoBuffer = fs.readFileSync(videoPath);
+      const videoBuffer = await fs.readFile(resolvedPath);
       const uploadResult = await this.client.upload.video({ video: videoBuffer, uploadId: Date.now() });
       const user = await this.client.user.infoByUsername(to);
       const thread = await this.client.directThread.getByParticipants([user.pk]);
@@ -147,6 +150,92 @@ class DirectRepository extends Repository {
       const response = await this.client.request.send({ method: 'GET', url: '/api/v1/direct_v2/get_presence/' });
       return response.body;
     });
+  }
+
+  /**
+   * React to a message
+   */
+  async reactToMessage(threadId, itemId, reaction) {
+    if (!threadId || !itemId || !reaction) throw new Error('threadId, itemId, and reaction are required');
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'POST',
+        url: `/api/v1/direct_v2/threads/${threadId}/items/${itemId}/like/`,
+        form: this.client.request.sign({ reaction }),
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Forward a message to another thread
+   */
+  async forwardMessage(threadId, itemId, recipientThreadId) {
+    if (!threadId || !itemId || !recipientThreadId) throw new Error('threadId, itemId, and recipientThreadId are required');
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'POST',
+        url: '/api/v1/direct_v2/threads/broadcast/text/',
+        form: this.client.request.sign({
+          text: '',
+          thread_ids: JSON.stringify([recipientThreadId]),
+          item_id: itemId,
+        }),
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Send messages to multiple users at once
+   */
+  async sendBulk(users, message) {
+    if (!Array.isArray(users) || !message) throw new Error('users array and message are required');
+    return Promise.all(users.map(u => this.send({ to: u, message })));
+  }
+
+  /**
+   * Send a scheduled message
+   */
+  async sendScheduled(options, date) {
+    if (!options || !date) throw new Error('options and date are required');
+    const delay = date - Date.now();
+    if (delay <= 0) throw new Error('Scheduled date must be in the future');
+    setTimeout(() => this.send(options), delay);
+  }
+
+  /**
+   * Mark a message as seen
+   */
+  async markAsSeen(threadId, itemId) {
+    if (!threadId || !itemId) throw new Error('threadId and itemId are required');
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'POST',
+        url: '/api/v1/direct_v2/threads/seen/',
+        form: this.client.request.sign({ thread_id: threadId, item_id: itemId }),
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Simulate typing indicator
+   */
+  async sendTyping(threadId, duration = 3000) {
+    if (!threadId) throw new Error('threadId is required');
+    await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/direct_v2/threads/typing_indicator/',
+      form: this.client.request.sign({ thread_id: threadId, action: 'typing_on' }),
+    });
+    setTimeout(async () => {
+      await this.client.request.send({
+        method: 'POST',
+        url: '/api/v1/direct_v2/threads/typing_indicator/',
+        form: this.client.request.sign({ thread_id: threadId, action: 'typing_off' }),
+      });
+    }, duration);
   }
 }
 
