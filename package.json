@@ -1,6 +1,6 @@
 {
   "name": "nodejs-insta-private-api",
-  "version": "3.3.2",
+  "version": "3.3.3",
   "description": "A pure JavaScript Instagram Private API client inspired by instagram-private-api",
   "main": "dist/index.js",
   "scripts": {
@@ -37,10 +37,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/nodejs-insta-private-api.git"
+    "url": "https://github.com/Kunboruto20/nodejs-insta-private-api.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/nodejs-insta-private-api/issues"
+    "url": "https://github.com/Kunboruto20/nodejs-insta-private-api/issues"
   },
-  "homepage": "https://github.com/yourusername/nodejs-insta-private-api#readme"
+  "homepage": "https://github.com/Kunboruto20/nodejs-insta-private-api#readme"
 }
