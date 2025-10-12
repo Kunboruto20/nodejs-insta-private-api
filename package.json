@@ -1,6 +1,6 @@
 {
   "name": "nodejs-insta-private-api",
-  "version": "3.3.4",
+  "version": "3.3.5",
   "description": "A pure JavaScript Instagram Private API client inspired by instagram-private-api",
   "main": "dist/index.js",
   "scripts": {
