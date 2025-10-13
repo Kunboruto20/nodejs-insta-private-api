@@ -1,58 +1,69 @@
 const WebSocket = require('ws');
+const EventEmitter = require('events');
 
-class RealtimeWS {
-  constructor(url, client) {
-    this.url = url;
+class IgWebSocket extends EventEmitter {
+  constructor(client) {
+    super();
     this.client = client;
     this.ws = null;
-    this.listeners = [];
-    this.heartbeatInterval = 30000; // 30 sec
+    this.connected = false;
   }
 
-  connect() {
-    this.ws = new WebSocket(this.url, {
-      headers: {
-        'User-Agent': 'Instagram 300.0.0.33.129 Android',
-        'Cookie': `sessionid=${this.client.state.cookieSessionId || ''}; csrftoken=${this.client.state.cookieCsrfToken || ''}`
-      }
-    });
-
-    this.ws.on('open', () => {
-      console.log('[Realtime] Connected to Instagram Realtime Server');
-      this._startHeartbeat();
-    });
-
-    this.ws.on('message', (msg) => {
-      let data;
-      try {
-        data = JSON.parse(msg);
-      } catch { return; }
-      this.listeners.forEach(cb => cb(data));
-    });
-
-    this.ws.on('close', () => {
-      console.log('[Realtime] Disconnected. Reconnecting in 5s...');
-      setTimeout(() => this.connect(), 5000);
-    });
-
-    this.ws.on('error', (err) => console.error('[Realtime] Error:', err));
+  /**
+   * Build WebSocket URL for Instagram realtime API
+   */
+  getWebSocketUrl() {
+    const userId = this.client.state.cookieUserId;
+    const sessionId = this.client.state.cookieSessionId; // or sessionid
+    return `wss://edge-mqtt.facebook.com:443/mqtt?userid=${userId}&sessionid=${sessionId}&clientid=IG_NODEJS`;
   }
 
-  send(payload) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(payload));
-    }
+  async connect() {
+    if (this.connected) return;
+
+    return new Promise((resolve, reject) => {
+      const url = this.getWebSocketUrl();
+      this.ws = new WebSocket(url);
+
+      this.ws.on('open', () => {
+        this.connected = true;
+        this.emit('connected');
+        resolve();
+      });
+
+      this.ws.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          this.emit('message', msg);
+        } catch (err) {
+          this.emit('error', err);
+        }
+      });
+
+      this.ws.on('close', () => {
+        this.connected = false;
+        this.emit('disconnected');
+      });
+
+      this.ws.on('error', (err) => {
+        this.connected = false;
+        this.emit('error', err);
+        reject(err);
+      });
+    });
   }
 
-  onMessage(callback) {
-    this.listeners.push(callback);
+  async disconnect() {
+    if (!this.connected || !this.ws) return;
+    this.ws.close();
+    this.connected = false;
   }
 
-  _startHeartbeat() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    this.ws.send(JSON.stringify({ type: 'heartbeat', timestamp: Date.now() }));
-    setTimeout(() => this._startHeartbeat(), this.heartbeatInterval);
+  send(data) {
+    if (!this.connected || !this.ws) throw new Error('WebSocket not connected');
+    const json = JSON.stringify(data);
+    this.ws.send(json);
   }
 }
 
-module.exports = RealtimeWS;
+module.exports = IgWebSocket;
