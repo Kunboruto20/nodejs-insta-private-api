@@ -1,3 +1,4 @@
+// dist/core/client.js
 const State = require('./state');
 const Request = require('./request');
 const AccountRepository = require('../repositories/account.repository');
@@ -14,7 +15,7 @@ const HashtagRepository = require('../repositories/hashtag.repository');
 const SearchService = require('../services/search.service');
 const LiveService = require('../services/live.service');
 const Utils = require('./utils'); // retry logic
-const Realtime = require('../realtime/index'); // conexiune WebSocket Instagram
+const Realtime = require('../realtime'); // <-- realtime folder is sibling to core
 
 class IgApiClient {
   constructor() {
@@ -38,7 +39,7 @@ class IgApiClient {
     this.search = new SearchService(this);
     this.live = new LiveService(this);
 
-    // WebSocket Realtime (Instagram)
+    // Realtime instance (created after login)
     this.realtime = null;
 
     // DM helper with retry logic
@@ -50,11 +51,11 @@ class IgApiClient {
       getInbox: this._wrapDM(this.direct.getInbox.bind(this.direct)),
       getThread: this._wrapDM(this.directThread.getThread.bind(this.directThread)),
     };
+
+    // Simple event registry (for realtime)
+    this._events = {};
   }
 
-  /**
-   * Wrap a DM method with automatic retries
-   */
   _wrapDM(fn) {
     return async (...args) => {
       return Utils.retryOperation(() => fn(...args), 3, 1000);
@@ -62,27 +63,37 @@ class IgApiClient {
   }
 
   /**
-   * Login și conectare automată la Realtime
+   * Login — DOES NOT fail if realtime cannot connect.
+   * Realtime will be started in background; errors are logged but do NOT break login.
    */
   async login(credentials) {
     const user = await this.account.login(credentials);
 
-    // Conectare automat la Realtime după login
-    if (!this.realtime) {
-      this.realtime = new Realtime(this);
-      await this.realtime.connect(); // poate fi async
+    // Start realtime in background — but don't block/throw if it fails
+    try {
+      this._initRealtime(); // create instance if needed
+      // connect but don't await forever — limit wait time
+      this.realtime.connect().catch(err => {
+        // connection errors should be logged but not break login
+        console.warn('[Realtime] connect() failed (non-fatal):', err && err.message ? err.message : err);
+      });
+    } catch (err) {
+      console.warn('[Realtime] init failed (non-fatal):', err && err.message ? err.message : err);
     }
 
     return user;
   }
 
   async logout() {
-    const result = await this.account.logout();
+    try {
+      await this.account.logout();
+    } catch (e) {
+      // ignore
+    }
     if (this.realtime) {
-      this.realtime.disconnect();
+      try { await this.realtime.disconnect(); } catch (_) {}
       this.realtime = null;
     }
-    return result;
   }
 
   isLoggedIn() {
@@ -110,16 +121,53 @@ class IgApiClient {
     }
   }
 
-  /**
-   * Curățare resurse
-   */
   destroy() {
-    this.request.error$.complete();
-    this.request.end$.complete();
+    try { this.request.error$.complete(); } catch (_) {}
+    try { this.request.end$.complete(); } catch (_) {}
     if (this.realtime) {
-      this.realtime.disconnect();
+      try { this.realtime.disconnect(); } catch (_) {}
       this.realtime = null;
     }
+  }
+
+  /**
+   * Initialize realtime instance (if not already)
+   */
+  _initRealtime() {
+    if (this.realtime) return;
+    this.realtime = new Realtime(this);
+
+    // hook events from realtime to client-level emitters
+    this.realtime.on('connected', () => {
+      console.log('[Realtime] connected');
+      if (this._events['realtime_connected']) this._events['realtime_connected']();
+    });
+
+    this.realtime.on('disconnected', () => {
+      console.log('[Realtime] disconnected');
+      if (this._events['realtime_disconnected']) this._events['realtime_disconnected']();
+    });
+
+    this.realtime.on('message', (msg) => {
+      if (this._events['realtime_message']) this._events['realtime_message'](msg);
+    });
+
+    // optional: other event types
+    this.realtime.on('raw', (payload) => {
+      if (this._events['realtime_raw']) this._events['realtime_raw'](payload);
+    });
+  }
+
+  /**
+   * Register event handler for realtime events:
+   * 'realtime_message', 'realtime_connected', 'realtime_disconnected', 'realtime_raw'
+   */
+  on(event, cb) {
+    this._events[event] = cb;
+  }
+
+  off(event) {
+    delete this._events[event];
   }
 }
 
