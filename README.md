@@ -1,4 +1,4 @@
-![Instagram](https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png)![Instagram](https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png)
+![Instagram](https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png)![Instagram]
 # nodejs-insta-private-api
 VERSION 3.3.5 Update library for latest Instagram Version 
 A pure JavaScript Instagram Private API client in written in CommonJS without TypeScript.
