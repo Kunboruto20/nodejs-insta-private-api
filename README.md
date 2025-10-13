@@ -1,6 +1,7 @@
 ![Instagram](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/96px-Instagram_icon.png)
 # nodejs-insta-private-api
-VERSION 3.3.5 Update library for latest Instagram Version 
+VERSION 4.4.p Update library for latest Instagram Version
+Live websocket connection to Instagram server websocket connection for live DM, mesagges, etc 
 A pure JavaScript Instagram Private API client in written in CommonJS without TypeScript.
 
 I created a new repository because that old repository was deleted by Github, the new library repository is here https://github.com/Kunboruto20/nodejs-insta-private-api.git
