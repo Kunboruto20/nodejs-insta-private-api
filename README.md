@@ -392,7 +392,7 @@ await ig.media.deleteComment('media_id', 'comment_id');
 
 ```javascript
 const { IgApiClient } = require('nodejs-insta-private-api');
-const Utils = require('nodejs-insta-private-api/src/utils');
+const Utils = require('nodejs-insta-private-api/dist/utils');
 
 try {
   await ig.login({ username, password, email });
@@ -423,7 +423,7 @@ try {
 ### Retry Logic
 
 ```javascript
-const Utils = require('nodejs-insta-private-api/src/utils');
+const Utils = require('nodejs-insta-private-api/dist/utils');
 
 // Retry failed operations
 await Utils.retryOperation(async () => {
@@ -436,7 +436,7 @@ await Utils.retryOperation(async () => {
 ### Rate Limiting
 
 ```javascript
-const Utils = require('nodejs-insta-private-api/src/utils');
+const Utils = require('nodejs-insta-private-api/dist/utils');
 
 // Add delays between requests
 await ig.dm.send({ to: 'user1', message: 'Hello!' });
@@ -467,7 +467,7 @@ for (const user of users) {
 ### File Validation
 
 ```javascript
-const Utils = require('nodejs-insta-private-api/src/utils');
+const Utils = require('nodejs-insta-private-api/dist/utils');
 
 // Validate files before uploading
 if (Utils.isImageFile('./photo.jpg') && Utils.validateFileSize('./photo.jpg', 8 * 1024 * 1024)) {
