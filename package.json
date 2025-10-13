@@ -1,6 +1,6 @@
 {
   "name": "nodejs-insta-private-api",
-  "version": "4.4.1",
+  "version": "4.4.2",
   "description": "A pure JavaScript Instagram Private API client inspired by instagram-private-api",
   "main": "dist/index.js",
   "scripts": {
@@ -28,7 +28,8 @@
     "uuid": "latest",
     "chance": "latest",
     "lodash": "latest",
-    "ws": "latest"
+    "ws": "latest",
+    "mqtt": "latest"
   },
   "devDependencies": {
     "node-fetch": "latest"
