@@ -1,71 +1,102 @@
-const IgWebSocket = require('./websocket');
+// dist/realtime/index.js
+const EventEmitter = require('events');
+const WebsocketLayer = require('./websocket');
 
-class Realtime {
+class Realtime extends EventEmitter {
+  /**
+   * client = instance of IgApiClient (has state, request, etc)
+   */
   constructor(client) {
+    super();
     this.client = client;
-    this.ws = new IgWebSocket(client);
-
-    this.ws.on('message', (msg) => {
-      // Emit evenimente pe client
-      if (msg.type === 'direct_message') {
-        this.client.emit('direct_message', msg);
-      }
-      if (msg.type === 'thread_update') {
-        this.client.emit('thread_update', msg);
-      }
-      if (msg.type === 'story_update') {
-        this.client.emit('story_update', msg);
-      }
-    });
-
-    this.ws.on('connected', () => {
-      console.log('[Realtime] Connected to Instagram Realtime WebSocket');
-    });
-
-    this.ws.on('disconnected', () => {
-      console.log('[Realtime] Disconnected from Instagram Realtime WebSocket, reconnecting...');
-    });
-
-    this.ws.on('error', (err) => {
-      console.error('[Realtime] WebSocket error:', err);
-    });
+    this.wsLayer = null;
+    this._connecting = false;
+    this._shouldConnect = true;
+    this._retries = 0;
+    this._maxRetries = 8;
   }
 
+  /**
+   * Expose on/emit from EventEmitter (inherited)
+   */
+
+  /**
+   * Build options and connect.
+   * Returns a Promise that resolves when connected, rejects on fatal error.
+   */
   async connect() {
-    await this.ws.connect();
+    if (this.wsLayer && this.wsLayer.isConnected()) return;
+    if (this._connecting) return; // concurrent connect prevented
+    this._connecting = true;
+
+    // create new layer
+    this.wsLayer = new WebsocketLayer(this.client);
+
+    // forward events
+    this.wsLayer.on('connected', () => {
+      this._retries = 0;
+      this.emit('connected');
+    });
+
+    this.wsLayer.on('disconnected', (info) => {
+      this.emit('disconnected', info);
+      // auto-reconnect with backoff
+      if (this._shouldConnect) {
+        const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(this._retries, 6)));
+        this._retries++;
+        setTimeout(() => {
+          this.connect().catch(err => {
+            // log non-fatal
+            console.warn('[Realtime] reconnect attempt failed:', err && err.message ? err.message : err);
+          });
+        }, delay);
+      }
+    });
+
+    this.wsLayer.on('error', (err) => {
+      this.emit('error', err);
+    });
+
+    this.wsLayer.on('message', (msg) => {
+      // normalized message -> emit
+      this.emit('message', msg);
+    });
+
+    this.wsLayer.on('raw', (payload) => {
+      this.emit('raw', payload);
+    });
+
+    try {
+      await this.wsLayer.connect();
+      this._connecting = false;
+      return;
+    } catch (err) {
+      this._connecting = false;
+      // fail silently to caller (caller decides)
+      throw err;
+    }
   }
 
   async disconnect() {
-    await this.ws.disconnect();
+    this._shouldConnect = false;
+    if (this.wsLayer) {
+      try { await this.wsLayer.disconnect(); } catch (_) {}
+      this.wsLayer = null;
+    }
   }
 
-  sendDirectMessage(threadId, text) {
-    if (!this.ws.connected) throw new Error('WebSocket not connected');
-    const payload = {
-      type: 'direct_message',
-      thread_id: threadId,
-      text,
-    };
-    this.ws.send(payload);
+  isConnected() {
+    return this.wsLayer && this.wsLayer.isConnected();
   }
 
-  sendReaction(threadId, reaction) {
-    if (!this.ws.connected) throw new Error('WebSocket not connected');
-    const payload = {
-      type: 'reaction',
-      thread_id: threadId,
-      reaction,
-    };
-    this.ws.send(payload);
-  }
-
-  markThreadSeen(threadId) {
-    if (!this.ws.connected) throw new Error('WebSocket not connected');
-    const payload = {
-      type: 'mark_seen',
-      thread_id: threadId,
-    };
-    this.ws.send(payload);
+  /**
+   * Send a direct message via realtime layer (if supported)
+   */
+  async sendDirectMessage(threadId, text) {
+    if (!this.wsLayer || !this.wsLayer.isConnected()) {
+      throw new Error('Realtime not connected');
+    }
+    return this.wsLayer.sendDirectMessage(threadId, text);
   }
 }
 
