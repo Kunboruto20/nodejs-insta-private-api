@@ -1,102 +1,80 @@
 // dist/realtime/index.js
 const EventEmitter = require('events');
-const WebsocketLayer = require('./websocket');
+const MqttLayer = require('./mqtt');
 
 class Realtime extends EventEmitter {
-  /**
-   * client = instance of IgApiClient (has state, request, etc)
-   */
   constructor(client) {
     super();
     this.client = client;
-    this.wsLayer = null;
+    this.layer = null;
     this._connecting = false;
     this._shouldConnect = true;
     this._retries = 0;
-    this._maxRetries = 8;
+    this._maxRetries = 10;
   }
 
-  /**
-   * Expose on/emit from EventEmitter (inherited)
-   */
-
-  /**
-   * Build options and connect.
-   * Returns a Promise that resolves when connected, rejects on fatal error.
-   */
   async connect() {
-    if (this.wsLayer && this.wsLayer.isConnected()) return;
-    if (this._connecting) return; // concurrent connect prevented
+    if (this.layer && this.layer.isConnected()) return;
+    if (this._connecting) return;
     this._connecting = true;
 
-    // create new layer
-    this.wsLayer = new WebsocketLayer(this.client);
+    this.layer = new MqttLayer(this.client);
 
-    // forward events
-    this.wsLayer.on('connected', () => {
+    // forward low-level events
+    this.layer.on('connected', () => {
       this._retries = 0;
       this.emit('connected');
     });
 
-    this.wsLayer.on('disconnected', (info) => {
+    this.layer.on('disconnected', (info) => {
       this.emit('disconnected', info);
-      // auto-reconnect with backoff
       if (this._shouldConnect) {
         const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(this._retries, 6)));
         this._retries++;
         setTimeout(() => {
           this.connect().catch(err => {
-            // log non-fatal
             console.warn('[Realtime] reconnect attempt failed:', err && err.message ? err.message : err);
           });
         }, delay);
       }
     });
 
-    this.wsLayer.on('error', (err) => {
-      this.emit('error', err);
-    });
-
-    this.wsLayer.on('message', (msg) => {
-      // normalized message -> emit
+    this.layer.on('message', (msg) => {
       this.emit('message', msg);
     });
 
-    this.wsLayer.on('raw', (payload) => {
+    this.layer.on('raw', (payload) => {
       this.emit('raw', payload);
     });
 
+    this.layer.on('error', (err) => {
+      this.emit('error', err);
+    });
+
     try {
-      await this.wsLayer.connect();
+      await this.layer.connect();
       this._connecting = false;
-      return;
     } catch (err) {
       this._connecting = false;
-      // fail silently to caller (caller decides)
       throw err;
     }
   }
 
   async disconnect() {
     this._shouldConnect = false;
-    if (this.wsLayer) {
-      try { await this.wsLayer.disconnect(); } catch (_) {}
-      this.wsLayer = null;
+    if (this.layer) {
+      try { await this.layer.disconnect(); } catch (_) {}
+      this.layer = null;
     }
   }
 
   isConnected() {
-    return this.wsLayer && this.wsLayer.isConnected();
+    return this.layer && this.layer.isConnected();
   }
 
-  /**
-   * Send a direct message via realtime layer (if supported)
-   */
   async sendDirectMessage(threadId, text) {
-    if (!this.wsLayer || !this.wsLayer.isConnected()) {
-      throw new Error('Realtime not connected');
-    }
-    return this.wsLayer.sendDirectMessage(threadId, text);
+    if (!this.layer || !this.layer.isConnected()) throw new Error('Realtime not connected');
+    return this.layer.sendDirectMessage(threadId, text);
   }
 }
 
