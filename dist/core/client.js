@@ -13,7 +13,8 @@ const LocationRepository = require('../repositories/location.repository');
 const HashtagRepository = require('../repositories/hashtag.repository');
 const SearchService = require('../services/search.service');
 const LiveService = require('../services/live.service');
-const Utils = require('./utils'); // ✅ Added utils for retry logic
+const Utils = require('./utils'); // retry logic
+const Realtime = require('../realtime/index'); // conexiune WebSocket Instagram
 
 class IgApiClient {
   constructor() {
@@ -37,7 +38,10 @@ class IgApiClient {
     this.search = new SearchService(this);
     this.live = new LiveService(this);
 
-    // Create dm object for easier access with retry logic
+    // WebSocket Realtime (Instagram)
+    this.realtime = null;
+
+    // DM helper with retry logic
     this.dm = {
       send: this._wrapDM(this.direct.send.bind(this.direct)),
       sendToGroup: this._wrapDM(this.directThread.sendToGroup.bind(this.directThread)),
@@ -49,8 +53,7 @@ class IgApiClient {
   }
 
   /**
-   * Wraps a DM function with retry logic
-   * @param {Function} fn
+   * Wrap a DM method with automatic retries
    */
   _wrapDM(fn) {
     return async (...args) => {
@@ -58,12 +61,28 @@ class IgApiClient {
     };
   }
 
+  /**
+   * Login și conectare automată la Realtime
+   */
   async login(credentials) {
-    return await this.account.login(credentials);
+    const user = await this.account.login(credentials);
+
+    // Conectare automat la Realtime după login
+    if (!this.realtime) {
+      this.realtime = new Realtime(this);
+      await this.realtime.connect(); // poate fi async
+    }
+
+    return user;
   }
 
   async logout() {
-    return await this.account.logout();
+    const result = await this.account.logout();
+    if (this.realtime) {
+      this.realtime.disconnect();
+      this.realtime = null;
+    }
+    return result;
   }
 
   isLoggedIn() {
@@ -91,10 +110,16 @@ class IgApiClient {
     }
   }
 
+  /**
+   * Curățare resurse
+   */
   destroy() {
-    // Cleanup resources
     this.request.error$.complete();
     this.request.end$.complete();
+    if (this.realtime) {
+      this.realtime.disconnect();
+      this.realtime = null;
+    }
   }
 }
 
