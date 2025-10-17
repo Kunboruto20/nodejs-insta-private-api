@@ -185,7 +185,20 @@ class State {
       authorization: this.authorization,
       igWWWClaim: this.igWWWClaim,
       passwordEncryptionKeyId: this.passwordEncryptionKeyId,
-      passwordEncryptionPubKey: this.passwordEncryptionPubKey
+      passwordEncryptionPubKey: this.passwordEncryptionPubKey,
+      language: this.language,
+      timezoneOffset: this.timezoneOffset,
+      radioType: this.radioType,
+      capabilitiesHeader: this.capabilitiesHeader,
+      connectionTypeHeader: this.connectionTypeHeader,
+      isLayoutRTL: this.isLayoutRTL,
+      adsOptOut: this.adsOptOut,
+      thumbnailCacheBustingValue: this.thumbnailCacheBustingValue,
+      proxyUrl: this.proxyUrl,
+      checkpoint: this.checkpoint,
+      challenge: this.challenge,
+      clientSessionIdLifetime: this.clientSessionIdLifetime,
+      pigeonSessionIdLifetime: this.pigeonSessionIdLifetime
     };
   }
 
@@ -196,7 +209,13 @@ class State {
       this.cookieStore = CookieJar.fromJSON(obj.cookies);
     }
 
+    // Restore all properties
     Object.assign(this, obj);
+    
+    // Ensure parsedAuthorization is updated if authorization exists
+    if (this.authorization) {
+      this.updateAuthorization();
+    }
   }
 
   // === Cookie and Debug Helpers ===
@@ -221,7 +240,24 @@ class State {
     console.log(`Language: ${this.language}`);
     console.log(`Timezone Offset: ${this.timezoneOffset}`);
     console.log(`Authorization: ${this.authorization ? 'Present' : 'Missing'}`);
+    console.log(`CSRF Token: ${this.cookieCsrfToken}`);
+    console.log(`User ID: ${this.cookieUserId || 'Not found'}`);
+    console.log(`Username: ${this.cookieUsername || 'Not found'}`);
     console.log('----------------------');
+  }
+
+  // Check if we have essential session data
+  hasValidSession() {
+    try {
+      const hasUserId = !!this.cookieUserId;
+      const hasUsername = !!this.cookieUsername;
+      const hasCsrfToken = !!this.cookieCsrfToken;
+      const hasSessionId = !!this.extractCookie('sessionid');
+      
+      return hasUserId && hasUsername && hasCsrfToken && hasSessionId;
+    } catch (error) {
+      return false;
+    }
   }
 }
 

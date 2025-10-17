@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const { random } = require('lodash');
+const { CookieJar } = require('tough-cookie');
 
 class Request {
   constructor(client) {
@@ -12,6 +13,20 @@ class Request {
       timeout: 30000,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
     });
+
+    // Add response interceptor to handle cookies
+    this.httpClient.interceptors.response.use(
+      (response) => {
+        this.handleCookies(response);
+        return response;
+      },
+      (error) => {
+        if (error.response) {
+          this.handleCookies(error.response);
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   signature(data) {
@@ -51,9 +66,25 @@ class Request {
     while (attempt <= retries) {
       try {
         const response = await this.httpClient(config);
-        if (response.data.status === 'ok' || response.status === 200) return { body: response.data, headers: response.headers };
+        
+        // Update state with response headers
+        this.updateState(response);
+        
+        if (response.data.status === 'ok' || response.status === 200) {
+          return { body: response.data, headers: response.headers };
+        }
+        
+        // Check if it's a session-related error
+        if (response.data.status === 'fail' && response.data.message === 'login_required') {
+          throw new Error('Session expired - login required');
+        }
+        
         throw new Error('Request failed');
       } catch (error) {
+        if (error.message === 'Session expired - login required') {
+          throw error; // Don't retry session errors
+        }
+        
         if (attempt < retries) {
           attempt++;
           await new Promise(r => setTimeout(r, 2000 * attempt));
@@ -61,6 +92,44 @@ class Request {
         }
         throw error;
       }
+    }
+  }
+
+  updateState(response) {
+    const {
+      'x-ig-set-www-claim': wwwClaim,
+      'ig-set-authorization': auth,
+      'ig-set-password-encryption-key-id': pwKeyId,
+      'ig-set-password-encryption-pub-key': pwPubKey,
+    } = response.headers;
+    
+    if (typeof wwwClaim === 'string') {
+      this.client.state.igWWWClaim = wwwClaim;
+    }
+    if (typeof auth === 'string' && !auth.endsWith(':')) {
+      this.client.state.authorization = auth;
+    }
+    if (typeof pwKeyId === 'string') {
+      this.client.state.passwordEncryptionKeyId = pwKeyId;
+    }
+    if (typeof pwPubKey === 'string') {
+      this.client.state.passwordEncryptionPubKey = pwPubKey;
+    }
+  }
+
+  handleCookies(response) {
+    const setCookieHeader = response.headers['set-cookie'];
+    if (setCookieHeader && this.client.state.cookieStore) {
+      setCookieHeader.forEach(cookieString => {
+        try {
+          this.client.state.cookieStore.setCookieSync(
+            cookieString,
+            this.client.state.constants.HOST
+          );
+        } catch (error) {
+          // Ignore cookie parsing errors
+        }
+      });
     }
   }
 }

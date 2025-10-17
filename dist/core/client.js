@@ -57,7 +57,13 @@ class IgApiClient {
   }
 
   _wrapDM(fn) {
-    return async (...args) => Utils.retryOperation(() => fn(...args), 3, 1000);
+    return async (...args) => {
+      // Ensure session is valid before making DM requests
+      if (!await this.ensureValidSession()) {
+        throw new Error('Invalid session - please login again');
+      }
+      return Utils.retryOperation(() => fn(...args), 3, 1000);
+    };
   }
 
   /**
@@ -65,6 +71,10 @@ class IgApiClient {
    */
   async login(credentials) {
     const user = await this.account.login(credentials);
+
+    // Log successful login
+    console.log('[DEBUG] Login successful for user:', user.username);
+    console.log('[DEBUG] Session data available:', this.state.hasValidSession());
 
     // init and try connect realtime but do not throw if it fails
     try {
@@ -95,18 +105,71 @@ class IgApiClient {
   }
 
   async saveSession() {
-    return await this.state.serialize();
+    if (!this.state.hasValidSession()) {
+      throw new Error('No valid session to save');
+    }
+    
+    const session = await this.state.serialize();
+    console.log('[DEBUG] Session saved successfully');
+    return session;
   }
 
   async loadSession(session) {
-    return await this.state.deserialize(session);
+    await this.state.deserialize(session);
+    
+    // Verify the loaded session
+    if (this.state.hasValidSession()) {
+      console.log('[DEBUG] Session loaded successfully');
+      return true;
+    } else {
+      console.log('[DEBUG] Loaded session is invalid');
+      return false;
+    }
   }
 
   async isSessionValid() {
     try {
+      // First check if we have basic session data
+      if (!this.state.hasValidSession()) {
+        return false;
+      }
+      
+      // Then verify with a real API call
       await this.account.currentUser();
       return true;
-    } catch {
+    } catch (error) {
+      console.log('[DEBUG] Session validation failed:', error.message);
+      return false;
+    }
+  }
+
+  async refreshSession() {
+    try {
+      if (!this.state.hasValidSession()) {
+        throw new Error('No valid session to refresh');
+      }
+      
+      // Try to get current user to refresh session
+      const user = await this.account.currentUser();
+      console.log('[DEBUG] Session refreshed successfully');
+      return user;
+    } catch (error) {
+      console.log('[DEBUG] Session refresh failed:', error.message);
+      throw error;
+    }
+  }
+
+  async ensureValidSession() {
+    if (await this.isSessionValid()) {
+      return true;
+    }
+    
+    console.log('[DEBUG] Session is invalid, attempting to refresh...');
+    try {
+      await this.refreshSession();
+      return true;
+    } catch (error) {
+      console.log('[DEBUG] Session refresh failed, need to login again');
       return false;
     }
   }
@@ -116,6 +179,14 @@ class IgApiClient {
     try { this.request.end$.complete(); } catch (_) {}
     try { if (this.realtime) this.realtime.disconnect(); } catch (_) {}
     this.realtime = null;
+  }
+
+  // Wrapper for all API calls to ensure session validity
+  async _ensureSessionAndCall(fn, ...args) {
+    if (!await this.ensureValidSession()) {
+      throw new Error('Invalid session - please login again');
+    }
+    return await fn(...args);
   }
 
   _initRealtime() {

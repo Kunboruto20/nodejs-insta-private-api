@@ -160,6 +160,146 @@ class MediaRepository extends Repository {
     
     return response.body;
   }
+
+  async likeComment(commentId) {
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${commentId}/comment_like/`,
+      method: 'POST',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async unlikeComment(commentId) {
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${commentId}/comment_unlike/`,
+      method: 'POST',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async save(mediaId) {
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${mediaId}/save/`,
+      method: 'POST',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async unsave(mediaId) {
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${mediaId}/unsave/`,
+      method: 'POST',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async report(mediaId, reason = 'spam') {
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${mediaId}/report/`,
+      method: 'POST',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+        reason: reason,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getPermalink(mediaId) {
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${mediaId}/permalink/`,
+      method: 'GET',
+    });
+    
+    return response.body;
+  }
+
+  async getLikers(mediaId, maxId = null) {
+    const qs = {};
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${mediaId}/likers/`,
+      method: 'GET',
+      qs
+    });
+    
+    return response.body;
+  }
+
+  async getCommentLikers(commentId) {
+    const response = await this.client.request.send({
+      url: `/api/v1/media/${commentId}/comment_likers/`,
+      method: 'GET',
+    });
+    
+    return response.body;
+  }
+
+  async getMediaByHashtag(hashtag, maxId = null) {
+    const qs = {
+      tag_name: hashtag,
+      count: 12
+    };
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    const response = await this.client.request.send({
+      url: '/api/v1/tags/media/recent/',
+      method: 'GET',
+      qs
+    });
+    
+    return response.body;
+  }
+
+  async getMediaByLocation(locationId, maxId = null) {
+    const qs = {
+      location_id: locationId,
+      count: 12
+    };
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    const response = await this.client.request.send({
+      url: '/api/v1/locations/media/recent/',
+      method: 'GET',
+      qs
+    });
+    
+    return response.body;
+  }
 }
 
 module.exports = MediaRepository;

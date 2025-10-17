@@ -228,6 +228,131 @@ class FeedRepository extends Repository {
     
     return response.body;
   }
+
+  async getStoryFeed() {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: '/api/v1/feed/reels_tray/',
+    });
+    
+    return response.body;
+  }
+
+  async getStoryViewers(storyId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/media/${storyId}/list_reel_media_viewer/`,
+    });
+    
+    return response.body;
+  }
+
+  async getStoryHighlights(userId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/highlights/${userId}/highlights_tray/`,
+    });
+    
+    return response.body;
+  }
+
+  async getStoryHighlightsById(highlightId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/highlights/${highlightId}/highlights_tray/`,
+    });
+    
+    return response.body;
+  }
+
+  async getStoryByUser(userId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/feed/user/${userId}/story/`,
+    });
+    
+    return response.body;
+  }
+
+  async getStoryByReelId(reelId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/feed/reels_media/`,
+      qs: {
+        reel_ids: JSON.stringify([reelId])
+      }
+    });
+    
+    return response.body;
+  }
+
+  async getStorySeen(reels) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/media/seen/',
+      form: this.client.request.sign({
+        reels: JSON.stringify(reels),
+        live_vods: JSON.stringify([]),
+        nf_token: '',
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+        container_module: 'feed_short_url',
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getStoryReaction(storyId, reaction) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/media/${storyId}/story_interaction/`,
+      form: this.client.request.sign({
+        media_id: storyId,
+        reaction_type: reaction,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getStoryPollVote(storyId, pollId, vote) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/media/${storyId}/story_poll_vote/`,
+      form: this.client.request.sign({
+        media_id: storyId,
+        poll_id: pollId,
+        vote: vote,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getStoryQuestionAnswer(storyId, questionId, answer) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/media/${storyId}/story_question_response/`,
+      form: this.client.request.sign({
+        media_id: storyId,
+        question_id: questionId,
+        response: answer,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
 }
 
 module.exports = FeedRepository;

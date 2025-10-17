@@ -349,6 +349,326 @@ class DirectThreadRepository extends Repository {
     const items = thread.items || [];
     return Promise.all(items.map(item => this.markItemSeen(threadId, item.item_id)));
   }
+
+  /**
+   * Get thread participants
+   */
+  async getParticipants(threadId) {
+    const thread = await this.getThread(threadId);
+    return thread.users || [];
+  }
+
+  /**
+   * Update thread theme
+   */
+  async updateTheme(threadId, theme) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/update_theme/`,
+        method: 'POST',
+        form: { 
+          _csrftoken: this.client.state.cookieCsrfToken, 
+          _uuid: this.client.state.uuid,
+          theme: theme
+        },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Update thread emoji
+   */
+  async updateEmoji(threadId, emoji) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/update_emoji/`,
+        method: 'POST',
+        form: { 
+          _csrftoken: this.client.state.cookieCsrfToken, 
+          _uuid: this.client.state.uuid,
+          emoji: emoji
+        },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Update thread admin
+   */
+  async updateAdmin(threadId, userId, isAdmin) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/update_admin/`,
+        method: 'POST',
+        form: { 
+          _csrftoken: this.client.state.cookieCsrfToken, 
+          _uuid: this.client.state.uuid,
+          user_id: userId,
+          is_admin: isAdmin ? '1' : '0'
+        },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread settings
+   */
+  async getSettings(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/settings/`,
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Update thread settings
+   */
+  async updateSettings(threadId, settings) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/update_settings/`,
+        method: 'POST',
+        form: { 
+          _csrftoken: this.client.state.cookieCsrfToken, 
+          _uuid: this.client.state.uuid,
+          ...settings
+        },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread activity
+   */
+  async getActivity(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/activity/`,
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread media
+   */
+  async getMedia(threadId, maxId = null) {
+    const qs = {};
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/media/`,
+        qs
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread files
+   */
+  async getFiles(threadId, maxId = null) {
+    const qs = {};
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/files/`,
+        qs
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread links
+   */
+  async getLinks(threadId, maxId = null) {
+    const qs = {};
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/links/`,
+        qs
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread reactions
+   */
+  async getReactions(threadId, itemId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/items/${itemId}/reactions/`,
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread mentions
+   */
+  async getMentions(threadId, maxId = null) {
+    const qs = {};
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/mentions/`,
+        qs
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread search results
+   */
+  async search(threadId, query) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/search/`,
+        qs: { query }
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread archive
+   */
+  async getArchive(threadId, maxId = null) {
+    const qs = {};
+    if (maxId) {
+      qs.max_id = maxId;
+    }
+    
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/archive/`,
+        qs
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Archive a thread
+   */
+  async archive(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/archive/`,
+        method: 'POST',
+        form: { _csrftoken: this.client.state.cookieCsrfToken, _uuid: this.client.state.uuid },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Unarchive a thread
+   */
+  async unarchive(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/unarchive/`,
+        method: 'POST',
+        form: { _csrftoken: this.client.state.cookieCsrfToken, _uuid: this.client.state.uuid },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread info
+   */
+  async getInfo(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/info/`,
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Update thread info
+   */
+  async updateInfo(threadId, info) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/update_info/`,
+        method: 'POST',
+        form: { 
+          _csrftoken: this.client.state.cookieCsrfToken, 
+          _uuid: this.client.state.uuid,
+          ...info
+        },
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Get thread members
+   */
+  async getMembers(threadId) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        method: 'GET',
+        url: `/api/v1/direct_v2/threads/${threadId}/members/`,
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Update thread members
+   */
+  async updateMembers(threadId, userIds) {
+    if (!Array.isArray(userIds)) throw new Error('userIds must be an array');
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: `/api/v1/direct_v2/threads/${threadId}/update_members/`,
+        method: 'POST',
+        form: { 
+          _csrftoken: this.client.state.cookieCsrfToken, 
+          _uuid: this.client.state.uuid,
+          user_ids: JSON.stringify(userIds)
+        },
+      });
+      return response.body;
+    });
+  }
 }
 
 module.exports = DirectThreadRepository;

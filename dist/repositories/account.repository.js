@@ -37,13 +37,28 @@ class AccountRepository extends Repository {
 
       const user = response.body.logged_in_user;
 
-      // ✅ Set cookies corect pentru MQTT
+      // Set important cookies for session management
       if (this.client.state.cookieStore && typeof this.client.state.cookieStore.setCookieSync === 'function') {
+        // Set sessionid cookie
         this.client.state.cookieStore.setCookieSync(
-          `sessionid=${user.pk}; Path=/; HttpOnly`,
+          `sessionid=${user.pk}; Path=/; HttpOnly; Secure`,
+          this.client.state.constants.HOST
+        );
+        
+        // Set ds_user_id cookie
+        this.client.state.cookieStore.setCookieSync(
+          `ds_user_id=${user.pk}; Path=/; HttpOnly; Secure`,
+          this.client.state.constants.HOST
+        );
+        
+        // Set ds_user cookie
+        this.client.state.cookieStore.setCookieSync(
+          `ds_user=${user.username}; Path=/; HttpOnly; Secure`,
           this.client.state.constants.HOST
         );
       }
+      
+      // Update CSRF token
       this.client.state.cookieCsrfToken = user.csrf_token || this.client.state.cookieCsrfToken;
 
       if (this.client.state.verbose) {
@@ -113,6 +128,80 @@ class AccountRepository extends Repository {
     let sum = 0;
     for (let i = 0; i < buf.byteLength; i++) sum += buf.readUInt8(i);
     return `2${sum}`;
+  }
+
+  async currentUser() {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: '/api/v1/accounts/current_user/',
+    });
+
+    return response.body;
+  }
+
+  async editProfile(options) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/edit_profile/',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uuid: this.client.state.uuid,
+        ...options,
+      }),
+    });
+
+    return response.body;
+  }
+
+  async changePassword(oldPassword, newPassword) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/change_password/',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uuid: this.client.state.uuid,
+        old_password: oldPassword,
+        new_password1: newPassword,
+        new_password2: newPassword,
+      }),
+    });
+
+    return response.body;
+  }
+
+  async setBiography(biography) {
+    return await this.editProfile({ biography });
+  }
+
+  async setProfilePicture(imagePath) {
+    // This would require file upload implementation
+    throw new Error('Profile picture upload not implemented yet');
+  }
+
+  async setPrivate() {
+    return await this.editProfile({ is_private: '1' });
+  }
+
+  async setPublic() {
+    return await this.editProfile({ is_private: '0' });
+  }
+
+  async getAccountInfo() {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: '/api/v1/accounts/current_user/',
+    });
+
+    return response.body;
+  }
+
+  async getAccountDetails() {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: '/api/v1/accounts/current_user/',
+    });
+
+    return response.body;
   }
 
   encryptPassword(password) {

@@ -237,6 +237,303 @@ class DirectRepository extends Repository {
       });
     }, duration);
   }
+
+  /**
+   * Send a story reply
+   */
+  async sendStoryReply(options) {
+    const { to, storyId, message } = options;
+    if (!to || !storyId || !message) throw new Error('Recipient (to), storyId, and message are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'story_share',
+        form: { 
+          text: message,
+          story_media_id: storyId,
+          is_reel_persisted: true
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a post share
+   */
+  async sendPostShare(options) {
+    const { to, mediaId, message } = options;
+    if (!to || !mediaId || !message) throw new Error('Recipient (to), mediaId, and message are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'media_share',
+        form: { 
+          text: message,
+          media_id: mediaId
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a profile share
+   */
+  async sendProfileShare(options) {
+    const { to, userId, message } = options;
+    if (!to || !userId || !message) throw new Error('Recipient (to), userId, and message are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'profile',
+        form: { 
+          text: message,
+          profile_user_id: userId
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a location share
+   */
+  async sendLocationShare(options) {
+    const { to, locationId, message } = options;
+    if (!to || !locationId || !message) throw new Error('Recipient (to), locationId, and message are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'location',
+        form: { 
+          text: message,
+          location_id: locationId
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a hashtag share
+   */
+  async sendHashtagShare(options) {
+    const { to, hashtag, message } = options;
+    if (!to || !hashtag || !message) throw new Error('Recipient (to), hashtag, and message are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'hashtag',
+        form: { 
+          text: message,
+          hashtag: hashtag
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a voice message
+   */
+  async sendVoiceMessage(options) {
+    const { to, audioPath } = options;
+    if (!to || !audioPath) throw new Error('Recipient (to) and audioPath are required');
+
+    const resolvedPath = path.resolve(audioPath);
+    return this.requestWithRetry(async () => {
+      const audioBuffer = await fs.readFile(resolvedPath);
+      const uploadResult = await this.client.upload.audio({ file: audioBuffer, uploadId: Date.now() });
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'voice_media',
+        form: { 
+          upload_id: uploadResult.upload_id,
+          audio: uploadResult.upload_id
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a GIF
+   */
+  async sendGif(options) {
+    const { to, gifId, message } = options;
+    if (!to || !gifId || !message) throw new Error('Recipient (to), gifId, and message are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'animated_media',
+        form: { 
+          text: message,
+          animated_media_id: gifId
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a sticker
+   */
+  async sendSticker(options) {
+    const { to, stickerId, message } = options;
+    if (!to || !stickerId || !message) throw new Error('Recipient (to), stickerId, and message are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'sticker',
+        form: { 
+          text: message,
+          sticker_id: stickerId
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a reaction
+   */
+  async sendReaction(options) {
+    const { to, emoji } = options;
+    if (!to || !emoji) throw new Error('Recipient (to) and emoji are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'reaction',
+        form: { 
+          emoji: emoji
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a poll
+   */
+  async sendPoll(options) {
+    const { to, question, options: pollOptions } = options;
+    if (!to || !question || !pollOptions) throw new Error('Recipient (to), question, and options are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'poll',
+        form: { 
+          question: question,
+          options: JSON.stringify(pollOptions)
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a question
+   */
+  async sendQuestion(options) {
+    const { to, question } = options;
+    if (!to || !question) throw new Error('Recipient (to) and question are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'question',
+        form: { 
+          question: question
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a countdown
+   */
+  async sendCountdown(options) {
+    const { to, text, endTime } = options;
+    if (!to || !text || !endTime) throw new Error('Recipient (to), text, and endTime are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'countdown',
+        form: { 
+          text: text,
+          end_time: endTime
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a slider
+   */
+  async sendSlider(options) {
+    const { to, question, emoji } = options;
+    if (!to || !question || !emoji) throw new Error('Recipient (to), question, and emoji are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'slider',
+        form: { 
+          question: question,
+          emoji: emoji
+        },
+      });
+    });
+  }
+
+  /**
+   * Send a quiz
+   */
+  async sendQuiz(options) {
+    const { to, question, options: quizOptions, correctAnswer } = options;
+    if (!to || !question || !quizOptions || !correctAnswer) throw new Error('Recipient (to), question, options, and correctAnswer are required');
+
+    return this.requestWithRetry(async () => {
+      const user = await this.client.user.infoByUsername(to);
+      const thread = await this.client.directThread.getByParticipants([user.pk]);
+      return this.client.directThread.broadcast({
+        threadIds: [thread.thread_id],
+        item: 'quiz',
+        form: { 
+          question: question,
+          options: JSON.stringify(quizOptions),
+          correct_answer: correctAnswer
+        },
+      });
+    });
+  }
 }
 
 module.exports = DirectRepository;

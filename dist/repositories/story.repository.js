@@ -151,6 +151,200 @@ class StoryRepository extends Repository {
     
     return response.body;
   }
+
+  async createHighlight(options) {
+    const { mediaIds, title, coverMediaId } = options;
+    
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/highlights/create_highlight/',
+      form: this.client.request.sign({
+        media_ids: JSON.stringify(mediaIds),
+        title: title,
+        cover_media_id: coverMediaId || mediaIds[0],
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async editHighlight(highlightId, options) {
+    const { title, coverMediaId } = options;
+    
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/highlights/${highlightId}/edit_highlight/`,
+      form: this.client.request.sign({
+        title: title,
+        cover_media_id: coverMediaId,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async deleteHighlight(highlightId) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/highlights/${highlightId}/delete_highlight/`,
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async addToHighlight(highlightId, mediaId) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/highlights/${highlightId}/add_media/`,
+      form: this.client.request.sign({
+        media_id: mediaId,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async removeFromHighlight(highlightId, mediaId) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/highlights/${highlightId}/remove_media/`,
+      form: this.client.request.sign({
+        media_id: mediaId,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getStoryPoll(storyId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/media/${storyId}/story_poll/`,
+    });
+    
+    return response.body;
+  }
+
+  async voteStoryPoll(storyId, pollId, vote) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/media/${storyId}/story_poll_vote/`,
+      form: this.client.request.sign({
+        media_id: storyId,
+        poll_id: pollId,
+        vote: vote,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getStoryQuestion(storyId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/media/${storyId}/story_question/`,
+    });
+    
+    return response.body;
+  }
+
+  async answerStoryQuestion(storyId, questionId, answer) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/media/${storyId}/story_question_response/`,
+      form: this.client.request.sign({
+        media_id: storyId,
+        question_id: questionId,
+        response: answer,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getStoryQuiz(storyId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/media/${storyId}/story_quiz/`,
+    });
+    
+    return response.body;
+  }
+
+  async answerStoryQuiz(storyId, quizId, answer) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/media/${storyId}/story_quiz_answer/`,
+      form: this.client.request.sign({
+        media_id: storyId,
+        quiz_id: quizId,
+        answer: answer,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
+
+  async getStoryCountdown(storyId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/media/${storyId}/story_countdown/`,
+    });
+    
+    return response.body;
+  }
+
+  async getStorySlider(storyId) {
+    const response = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/media/${storyId}/story_slider/`,
+    });
+    
+    return response.body;
+  }
+
+  async voteStorySlider(storyId, sliderId, value) {
+    const response = await this.client.request.send({
+      method: 'POST',
+      url: `/api/v1/media/${storyId}/story_slider_vote/`,
+      form: this.client.request.sign({
+        media_id: storyId,
+        slider_id: sliderId,
+        value: value,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    
+    return response.body;
+  }
 }
 
 module.exports = StoryRepository;
