@@ -15,6 +15,7 @@ A pure JavaScript Instagram Private API client in written in CommonJS without Ty
 - 🔄 **Auto-retry** - Built-in retry logic for failed requests
 - 📋 **Comprehensive API** - 50+ methods covering most Instagram features
 - 🚀 **High Performance** - Optimized for speed and reliability
+- 📡 **Realtime MQTT** - Real-time events via MQTT (push notifications, DMs, presence, typing)
 
 ## Installation
 
@@ -382,6 +383,86 @@ await ig.media.delete('media_id');
 // Delete comment
 await ig.media.deleteComment('media_id', 'comment_id');
 ```
+
+## Realtime MQTT Events
+
+### Connect to Realtime Service
+
+```javascript
+// Login first (required for realtime)
+await ig.login({ username, password });
+
+// Connect to MQTT broker
+await ig.connectRealtime();
+
+// Check connection status
+if (ig.isRealtimeConnected()) {
+  console.log('Connected to realtime!');
+}
+```
+
+### Listen for Events
+
+```javascript
+// Generic realtime event
+ig.realtime.on('realtimeEvent', (event) => {
+  console.log(`Topic: ${event.topic}`);
+  console.log(`Payload: ${JSON.stringify(event.payload)}`);
+});
+
+// Specific event types
+ig.realtime.on('directMessage', (payload) => {
+  console.log('New DM:', payload);
+});
+
+ig.realtime.on('pushNotification', (payload) => {
+  console.log('Push notification:', payload);
+});
+
+ig.realtime.on('presenceUpdate', (payload) => {
+  console.log('User presence:', payload);
+});
+
+ig.realtime.on('typingIndicator', (payload) => {
+  console.log('User is typing:', payload);
+});
+
+ig.realtime.on('activityNotification', (payload) => {
+  console.log('Activity notification:', payload);
+});
+```
+
+### Realtime Management
+
+```javascript
+// Ping the broker
+ig.pingRealtime();
+
+// Get connection stats
+const stats = ig.getRealtimeStats();
+console.log(stats);
+
+// Configure reconnection
+ig.setRealtimeReconnectOptions({
+  maxAttempts: 5,
+  delay: 3000
+});
+
+// Disconnect
+ig.disconnectRealtime();
+```
+
+### Available MQTT Topics
+
+| Topic | Description | Event |
+|-------|-------------|-------|
+| `/fbns_msg` | Push notifications | `pushNotification` |
+| `/ig_message` | Direct messages | `directMessage` |
+| `/ig_presence` | Online status | `presenceUpdate` |
+| `/ig_typing` | Typing indicators | `typingIndicator` |
+| `/ig_activity` | Activity notifications | `activityNotification` |
+
+For detailed realtime documentation, see [REALTIME.md](./REALTIME.md).
 
 ## Error Handling
 

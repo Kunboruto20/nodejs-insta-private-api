@@ -17,6 +17,7 @@ const LocationRepository = require('../repositories/location.repository');
 const HashtagRepository = require('../repositories/hashtag.repository');
 const SearchService = require('../services/search.service');
 const LiveService = require('../services/live.service');
+const RealtimeService = require('../services/realtime.service');
 
 /**
  * IgApiClient
@@ -48,6 +49,7 @@ class IgApiClient extends EventEmitter {
     // Initialize services
     this.search = new SearchService(this);
     this.live = new LiveService(this);
+    this.realtime = new RealtimeService(this);
 
     // Create dm object for easier access (keeps backward compatibility)
     this.dm = {
@@ -65,7 +67,7 @@ class IgApiClient extends EventEmitter {
     // Default retry policy for the new helper retryAsync
     this._defaultRetryPolicy = { retries: 3, delayMs: 500 };
 
-    // No realtime here anymore.
+    // Realtime service is now available as this.realtime
   }
 
   /**
@@ -111,6 +113,71 @@ class IgApiClient extends EventEmitter {
     // Cleanup resources - keep original behaviour for request streams if present
     try { this.request.error$.complete(); } catch (_) {}
     try { this.request.end$.complete(); } catch (_) {}
+    
+    // Disconnect realtime service if connected
+    if (this.realtime && this.realtime.isRealtimeConnected()) {
+      this.realtime.disconnect();
+    }
+  }
+
+  // -------------------------------
+  // === REALTIME MQTT METHODS
+  // -------------------------------
+
+  /**
+   * Conectează serviciul realtime MQTT
+   * @returns {Promise<boolean>} True dacă conexiunea a reușit
+   */
+  async connectRealtime() {
+    if (!this.isLoggedIn()) {
+      throw new Error('Must be logged in to use realtime service');
+    }
+    
+    return await this.realtime.connect();
+  }
+
+  /**
+   * Deconectează serviciul realtime MQTT
+   */
+  disconnectRealtime() {
+    if (this.realtime) {
+      this.realtime.disconnect();
+    }
+  }
+
+  /**
+   * Verifică dacă serviciul realtime este conectat
+   * @returns {boolean}
+   */
+  isRealtimeConnected() {
+    return this.realtime ? this.realtime.isRealtimeConnected() : false;
+  }
+
+  /**
+   * Trimite ping la broker-ul MQTT
+   */
+  pingRealtime() {
+    if (this.realtime) {
+      this.realtime.ping();
+    }
+  }
+
+  /**
+   * Obține statisticile serviciului realtime
+   * @returns {Object}
+   */
+  getRealtimeStats() {
+    return this.realtime ? this.realtime.getStats() : null;
+  }
+
+  /**
+   * Setează opțiunile de reconectare pentru realtime
+   * @param {Object} options - Opțiunile de reconectare
+   */
+  setRealtimeReconnectOptions(options) {
+    if (this.realtime) {
+      this.realtime.setReconnectOptions(options);
+    }
   }
 
   // -------------------------------
@@ -234,6 +301,10 @@ class IgApiClient extends EventEmitter {
   async safeDestroy() {
     try { if (this.request && this.request.error$ && typeof this.request.error$.complete === 'function') this.request.error$.complete(); } catch (_) {}
     try { if (this.request && this.request.end$ && typeof this.request.end$.complete === 'function') this.request.end$.complete(); } catch (_) {}
+    
+    // Disconnect realtime service if connected
+    try { if (this.realtime && this.realtime.isRealtimeConnected()) this.realtime.disconnect(); } catch (_) {}
+    
     // keep original destroy for backward compatibility
     try { this.destroy(); } catch (_) {}
   }
