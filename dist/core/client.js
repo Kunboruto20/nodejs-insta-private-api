@@ -18,6 +18,7 @@ const HashtagRepository = require('../repositories/hashtag.repository');
 const SearchService = require('../services/search.service');
 const LiveService = require('../services/live.service');
 const RealtimeService = require('../services/realtime.service');
+const EnhancedRealtimeService = require('../services/enhanced-realtime.service');
 
 /**
  * IgApiClient
@@ -50,6 +51,7 @@ class IgApiClient extends EventEmitter {
     this.search = new SearchService(this);
     this.live = new LiveService(this);
     this.realtime = new RealtimeService(this);
+    this.enhancedRealtime = new EnhancedRealtimeService(this);
 
     // Create dm object for easier access (keeps backward compatibility)
     this.dm = {
@@ -118,6 +120,11 @@ class IgApiClient extends EventEmitter {
     if (this.realtime && this.realtime.isRealtimeConnected()) {
       this.realtime.disconnect();
     }
+    
+    // Disconnect enhanced realtime service if connected
+    if (this.enhancedRealtime && this.enhancedRealtime.isRealtimeConnected()) {
+      this.enhancedRealtime.disconnect();
+    }
   }
 
   // -------------------------------
@@ -177,6 +184,86 @@ class IgApiClient extends EventEmitter {
   setRealtimeReconnectOptions(options) {
     if (this.realtime) {
       this.realtime.setReconnectOptions(options);
+    }
+  }
+
+  // -------------------------------
+  // === ENHANCED REALTIME MQTT METHODS
+  // -------------------------------
+
+  /**
+   * Conectează serviciul realtime îmbunătățit MQTT
+   * @returns {Promise<boolean>} True dacă conexiunea a reușit
+   */
+  async connectEnhancedRealtime() {
+    if (!this.isLoggedIn()) {
+      throw new Error('Must be logged in to use enhanced realtime service');
+    }
+    
+    return await this.enhancedRealtime.connect();
+  }
+
+  /**
+   * Deconectează serviciul realtime îmbunătățit MQTT
+   */
+  disconnectEnhancedRealtime() {
+    if (this.enhancedRealtime) {
+      this.enhancedRealtime.disconnect();
+    }
+  }
+
+  /**
+   * Verifică dacă serviciul realtime îmbunătățit este conectat
+   * @returns {boolean}
+   */
+  isEnhancedRealtimeConnected() {
+    return this.enhancedRealtime ? this.enhancedRealtime.isRealtimeConnected() : false;
+  }
+
+  /**
+   * Trimite ping la broker-ul MQTT îmbunătățit
+   */
+  pingEnhancedRealtime() {
+    if (this.enhancedRealtime) {
+      this.enhancedRealtime.ping();
+    }
+  }
+
+  /**
+   * Obține statisticile serviciului realtime îmbunătățit
+   * @returns {Object}
+   */
+  getEnhancedRealtimeStats() {
+    return this.enhancedRealtime ? this.enhancedRealtime.getStats() : null;
+  }
+
+  /**
+   * Setează opțiunile de reconectare pentru realtime îmbunătățit
+   * @param {Object} options - Opțiunile de reconectare
+   */
+  setEnhancedRealtimeReconnectOptions(options) {
+    if (this.enhancedRealtime) {
+      this.enhancedRealtime.setReconnectOptions(options);
+    }
+  }
+
+  /**
+   * Setează intervalul de ping pentru realtime îmbunătățit
+   * @param {number} intervalMs - Intervalul în milisecunde
+   */
+  setEnhancedRealtimePingInterval(intervalMs) {
+    if (this.enhancedRealtime) {
+      this.enhancedRealtime.setPingInterval(intervalMs);
+    }
+  }
+
+  /**
+   * Setează intervalul de fallback polling pentru realtime îmbunătățit
+   * @param {number} intervalMs - Intervalul în milisecunde
+   */
+  setEnhancedRealtimeFallbackPollingInterval(intervalMs) {
+    if (this.enhancedRealtime) {
+      this.enhancedRealtime.setFallbackPollingInterval(intervalMs);
     }
   }
 
@@ -304,6 +391,9 @@ class IgApiClient extends EventEmitter {
     
     // Disconnect realtime service if connected
     try { if (this.realtime && this.realtime.isRealtimeConnected()) this.realtime.disconnect(); } catch (_) {}
+    
+    // Disconnect enhanced realtime service if connected
+    try { if (this.enhancedRealtime && this.enhancedRealtime.isRealtimeConnected()) this.enhancedRealtime.disconnect(); } catch (_) {}
     
     // keep original destroy for backward compatibility
     try { this.destroy(); } catch (_) {}
