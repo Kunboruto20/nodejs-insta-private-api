@@ -1,5 +1,5 @@
-const { IgApiClient } = require('./src/index');
-const Utils = require('./src/utils');
+const { IgApiClient } = require('./dist/index');
+const Utils = require('./dist/utils');
 const fs = require('fs');
 
 async function main() {
