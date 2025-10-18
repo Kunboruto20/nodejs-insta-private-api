@@ -2,13 +2,13 @@ const { IgApiClient } = require('./dist/index');
 const fs = require('fs');
 
 /**
- * Exemplu de utilizare a serviciului realtime MQTT
+ * Instagram Realtime MQTT Example
  * 
- * Acest exemplu demonstrează cum să:
- * 1. Te conectezi la Instagram
- * 2. Activezi serviciul realtime MQTT
- * 3. Asculți evenimente în timp real
- * 4. Gestionezi erorile și reconectarea
+ * This example demonstrates how to:
+ * 1. Connect to Instagram
+ * 2. Enable the new realtime MQTT service
+ * 3. Listen for real-time events using the correct topics and endpoints
+ * 4. Handle errors and reconnection
  */
 async function realtimeExample() {
   const ig = new IgApiClient();
@@ -83,7 +83,7 @@ async function realtimeExample() {
     setupRealtimeEventListeners(ig);
     
     // Connect to MQTT broker
-    console.log('   🔌 Connecting to MQTT broker...');
+    console.log('   🔌 Connecting to MQTT broker (edge-mqtt.facebook.com)...');
     try {
       await ig.connectRealtime();
       console.log('   ✅ Connected to MQTT broker!');
@@ -102,11 +102,13 @@ async function realtimeExample() {
     // ============================================
     console.log('\n👂 3. Listening for Realtime Events');
     console.log('   📱 Listening for:');
-    console.log('   - Push notifications (/fbns_msg)');
-    console.log('   - Direct messages (/ig_message)');
-    console.log('   - Presence updates (/ig_presence)');
-    console.log('   - Typing indicators (/ig_typing)');
-    console.log('   - Activity notifications (/ig_activity)');
+    console.log('   - GraphQL messages (/graphql)');
+    console.log('   - Pub/Sub messages (/pubsub)');
+    console.log('   - Message sync (/ig_message_sync)');
+    console.log('   - Send message responses (/ig_send_message_response)');
+    console.log('   - Iris subscriptions (/ig_sub_iris_response)');
+    console.log('   - Region hints (/t_region_hint)');
+    console.log('   - Realtime subscriptions (/ig_realtime_sub)');
     console.log('\n   ⏳ Waiting for events... (Press Ctrl+C to stop)');
     
     // Keep the process running to listen for events
@@ -139,39 +141,55 @@ async function realtimeExample() {
 }
 
 /**
- * Configurează event listener-ii pentru serviciul realtime
- * @param {IgApiClient} ig - Clientul Instagram
+ * Set up event listeners for the realtime service
+ * @param {IgApiClient} ig - Instagram client
  */
 function setupRealtimeEventListeners(ig) {
-  // Event generic pentru toate evenimentele realtime
+  // Generic realtime event
   ig.realtime.on('realtimeEvent', (event) => {
     console.log(`\n📨 [${event.timestamp}] Realtime Event:`);
-    console.log(`   Topic: ${event.topic}`);
-    console.log(`   Payload: ${JSON.stringify(event.payload, null, 2)}`);
+    console.log(`   Topic: ${event.topic} (ID: ${event.topicId})`);
+    console.log(`   Data: ${JSON.stringify(event.data, null, 2)}`);
   });
   
-  // Event-uri specifice pentru fiecare tip de mesaj
-  ig.realtime.on('pushNotification', (payload) => {
-    console.log('\n🔔 Push Notification:', JSON.stringify(payload, null, 2));
+  // Specific event types
+  ig.realtime.on('graphqlMessage', (data) => {
+    console.log('\n🔍 GraphQL Message:', JSON.stringify(data, null, 2));
   });
   
-  ig.realtime.on('directMessage', (payload) => {
-    console.log('\n💬 Direct Message:', JSON.stringify(payload, null, 2));
+  ig.realtime.on('pubsubMessage', (data) => {
+    console.log('\n📢 Pub/Sub Message:', JSON.stringify(data, null, 2));
   });
   
-  ig.realtime.on('presenceUpdate', (payload) => {
-    console.log('\n👤 Presence Update:', JSON.stringify(payload, null, 2));
+  ig.realtime.on('messageSync', (data) => {
+    console.log('\n💬 Message Sync:', JSON.stringify(data, null, 2));
   });
   
-  ig.realtime.on('typingIndicator', (payload) => {
-    console.log('\n⌨️ Typing Indicator:', JSON.stringify(payload, null, 2));
+  ig.realtime.on('sendMessageResponse', (data) => {
+    console.log('\n📤 Send Message Response:', JSON.stringify(data, null, 2));
   });
   
-  ig.realtime.on('activityNotification', (payload) => {
-    console.log('\n🎯 Activity Notification:', JSON.stringify(payload, null, 2));
+  ig.realtime.on('irisSubResponse', (data) => {
+    console.log('\n👁️ Iris Subscription Response:', JSON.stringify(data, null, 2));
   });
   
-  // Event-uri de conexiune
+  ig.realtime.on('regionHint', (data) => {
+    console.log('\n🌍 Region Hint:', JSON.stringify(data, null, 2));
+  });
+  
+  ig.realtime.on('realtimeSub', (data) => {
+    console.log('\n📡 Realtime Subscription:', JSON.stringify(data, null, 2));
+  });
+  
+  ig.realtime.on('foregroundState', (data) => {
+    console.log('\n📱 Foreground State:', JSON.stringify(data, null, 2));
+  });
+  
+  ig.realtime.on('sendMessage', (data) => {
+    console.log('\n📨 Send Message:', JSON.stringify(data, null, 2));
+  });
+  
+  // Connection events
   ig.realtime.on('connected', () => {
     console.log('   ✅ MQTT Connected');
   });
@@ -210,8 +228,9 @@ if (require.main === module) {
   console.log('⚠️  IMPORTANT NOTES:');
   console.log('1. Replace credentials with your own');
   console.log('2. Make sure you have a valid Instagram session');
-  console.log('3. The MQTT connection simulates Instagram app behavior');
-  console.log('4. Use responsibly and follow Instagram ToS');
+  console.log('3. Uses the correct endpoint: edge-mqtt.facebook.com');
+  console.log('4. Supports all Instagram realtime topics');
+  console.log('5. Use responsibly and follow Instagram ToS');
   console.log('');
   
   realtimeExample().catch(console.error);

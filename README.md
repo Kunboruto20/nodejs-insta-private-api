@@ -15,18 +15,17 @@ A pure JavaScript Instagram Private API client in written in CommonJS without Ty
 - 🔄 **Auto-retry** - Built-in retry logic for failed requests
 - 📋 **Comprehensive API** - 50+ methods covering most Instagram features
 - 🚀 **High Performance** - Optimized for speed and reliability
-- 📡 **Realtime MQTT** - Real-time events via MQTT (push notifications, DMs, presence, typing)
-- 🚀 **Enhanced Realtime MQTT** - **NEW!** Stable MQTT with auto-reconnect, ping intervals, and fallback polling
+- 📡 **Realtime MQTT** - Real-time events via MQTT using edge-mqtt.facebook.com (GraphQL, Pub/Sub, Message Sync, Iris)
 
-## 🛡️ MQTT Stability Issues Resolved
+## 📡 Realtime MQTT Features
 
-The enhanced realtime service fixes common MQTT connection problems:
+The realtime service provides comprehensive Instagram real-time messaging:
 
-- ❌ **ECONNRESET errors** → ✅ **99% reduction** with robust error handling
-- ❌ **Connection drops** → ✅ **Automatic reconnection** with exponential backoff  
-- ❌ **Manual intervention** → ✅ **Zero maintenance** required
-- ❌ **Complete service loss** → ✅ **Fallback polling** mode
-- ❌ **Unstable connections** → ✅ **Periodic ping** system for health monitoring
+- ✅ **Correct Endpoint** - Uses edge-mqtt.facebook.com (Instagram's official MQTT broker)
+- ✅ **All Topics Supported** - GraphQL, Pub/Sub, Message Sync, Iris, Region Hints
+- ✅ **Automatic Reconnection** - Robust error handling with exponential backoff
+- ✅ **Message Parsing** - Dedicated parsers for each message type
+- ✅ **Event System** - Comprehensive event handling for all realtime activities
 
 ## Installation
 
@@ -70,7 +69,7 @@ async function main() {
 main();
 ```
 
-### Enhanced Realtime Usage (Recommended)
+### Realtime Usage
 
 ```javascript
 const { IgApiClient } = require('nodejs-insta-private-api');
@@ -86,19 +85,23 @@ async function main() {
       email: 'your_email@example.com' 
     });
     
-    // Connect to enhanced realtime (stable MQTT)
-    await ig.connectEnhancedRealtime();
+    // Connect to realtime MQTT
+    await ig.connectRealtime();
     
     // Listen for real-time events
-    ig.enhancedRealtime.on('directMessage', (payload) => {
-      console.log('📨 New DM:', payload);
+    ig.realtime.on('messageSync', (data) => {
+      console.log('💬 Message sync:', data);
     });
     
-    ig.enhancedRealtime.on('pushNotification', (payload) => {
-      console.log('🔔 Push notification:', payload);
+    ig.realtime.on('graphqlMessage', (data) => {
+      console.log('🔍 GraphQL message:', data);
     });
     
-    console.log('✅ Connected to enhanced realtime!');
+    ig.realtime.on('pubsubMessage', (data) => {
+      console.log('📢 Pub/Sub message:', data);
+    });
+    
+    console.log('✅ Connected to realtime!');
     
   } catch (error) {
     console.error('❌ Error:', error.message);
@@ -437,32 +440,9 @@ await ig.media.deleteComment('media_id', 'comment_id');
 
 ## Realtime MQTT Events
 
-### 🚀 Enhanced Realtime MQTT (Recommended)
+### Realtime Service
 
-The enhanced realtime service provides **stable MQTT connections** with automatic reconnection, ping intervals, and fallback polling to resolve common connection issues.
-
-```javascript
-// Login first (required for realtime)
-await ig.login({ username, password });
-
-// Connect to enhanced MQTT broker
-await ig.connectEnhancedRealtime();
-
-// Configure enhanced features
-ig.setEnhancedRealtimePingInterval(30000); // Ping every 30 seconds
-ig.setEnhancedRealtimeFallbackPollingInterval(10000); // Fallback polling every 10 seconds
-ig.setEnhancedRealtimeReconnectOptions({
-  maxAttempts: 10,
-  delay: 5000
-});
-
-// Check connection status
-if (ig.isEnhancedRealtimeConnected()) {
-  console.log('Connected to enhanced realtime!');
-}
-```
-
-### Standard Realtime Service
+The realtime service provides comprehensive Instagram real-time messaging using the official MQTT broker.
 
 ```javascript
 // Login first (required for realtime)
@@ -479,110 +459,52 @@ if (ig.isRealtimeConnected()) {
 
 ### Listen for Events
 
-#### Enhanced Realtime Events (Recommended)
-
-```javascript
-// Generic realtime event
-ig.enhancedRealtime.on('realtimeEvent', (event) => {
-  console.log(`Topic: ${event.topic}`);
-  console.log(`Payload: ${JSON.stringify(event.payload)}`);
-});
-
-// Specific event types
-ig.enhancedRealtime.on('directMessage', (payload) => {
-  console.log('New DM:', payload);
-});
-
-ig.enhancedRealtime.on('pushNotification', (payload) => {
-  console.log('Push notification:', payload);
-});
-
-ig.enhancedRealtime.on('presenceUpdate', (payload) => {
-  console.log('User presence:', payload);
-});
-
-ig.enhancedRealtime.on('typingIndicator', (payload) => {
-  console.log('User is typing:', payload);
-});
-
-ig.enhancedRealtime.on('activityNotification', (payload) => {
-  console.log('Activity notification:', payload);
-});
-
-// Enhanced stability events
-ig.enhancedRealtime.on('fallbackModeEnabled', () => {
-  console.log('🔄 Switched to polling mode - MQTT failed');
-});
-
-ig.enhancedRealtime.on('fallbackModeDisabled', () => {
-  console.log('✅ Back to MQTT mode');
-});
-
-ig.enhancedRealtime.on('ping', () => {
-  console.log('🏓 Ping sent to maintain connection');
-});
-```
-
-#### Standard Realtime Events
-
 ```javascript
 // Generic realtime event
 ig.realtime.on('realtimeEvent', (event) => {
-  console.log(`Topic: ${event.topic}`);
-  console.log(`Payload: ${JSON.stringify(event.payload)}`);
+  console.log(`Topic: ${event.topic} (ID: ${event.topicId})`);
+  console.log(`Data: ${JSON.stringify(event.data)}`);
 });
 
 // Specific event types
-ig.realtime.on('directMessage', (payload) => {
-  console.log('New DM:', payload);
+ig.realtime.on('messageSync', (data) => {
+  console.log('Message sync:', data);
 });
 
-ig.realtime.on('pushNotification', (payload) => {
-  console.log('Push notification:', payload);
+ig.realtime.on('graphqlMessage', (data) => {
+  console.log('GraphQL message:', data);
 });
 
-ig.realtime.on('presenceUpdate', (payload) => {
-  console.log('User presence:', payload);
+ig.realtime.on('pubsubMessage', (data) => {
+  console.log('Pub/Sub message:', data);
 });
 
-ig.realtime.on('typingIndicator', (payload) => {
-  console.log('User is typing:', payload);
+ig.realtime.on('sendMessageResponse', (data) => {
+  console.log('Send message response:', data);
 });
 
-ig.realtime.on('activityNotification', (payload) => {
-  console.log('Activity notification:', payload);
+ig.realtime.on('irisSubResponse', (data) => {
+  console.log('Iris subscription response:', data);
+});
+
+ig.realtime.on('regionHint', (data) => {
+  console.log('Region hint:', data);
+});
+
+ig.realtime.on('realtimeSub', (data) => {
+  console.log('Realtime subscription:', data);
+});
+
+ig.realtime.on('foregroundState', (data) => {
+  console.log('Foreground state:', data);
+});
+
+ig.realtime.on('sendMessage', (data) => {
+  console.log('Send message:', data);
 });
 ```
 
 ### Realtime Management
-
-#### Enhanced Realtime Management (Recommended)
-
-```javascript
-// Ping the broker
-ig.pingEnhancedRealtime();
-
-// Get connection stats
-const stats = ig.getEnhancedRealtimeStats();
-console.log(stats);
-
-// Configure reconnection
-ig.setEnhancedRealtimeReconnectOptions({
-  maxAttempts: 10,
-  delay: 5000
-});
-
-// Set ping interval (30 seconds)
-ig.setEnhancedRealtimePingInterval(30000);
-
-// Set fallback polling interval (10 seconds)
-ig.setEnhancedRealtimeFallbackPollingInterval(10000);
-
-// Disconnect
-ig.disconnectEnhancedRealtime();
-```
-
-#### Standard Realtime Management
 
 ```javascript
 // Ping the broker
@@ -604,37 +526,25 @@ ig.disconnectRealtime();
 
 ### Available MQTT Topics
 
-| Topic | Description | Event |
-|-------|-------------|-------|
-| `/fbns_msg` | Push notifications | `pushNotification` |
-| `/ig_message` | Direct messages | `directMessage` |
-| `/ig_presence` | Online status | `presenceUpdate` |
-| `/ig_typing` | Typing indicators | `typingIndicator` |
-| `/ig_activity` | Activity notifications | `activityNotification` |
+| Topic | ID | Description | Event |
+|-------|----|-------------|-------|
+| `/graphql` | 9 | GraphQL queries/mutations | `graphqlMessage` |
+| `/pubsub` | 88 | Pub/Sub messages | `pubsubMessage` |
+| `/ig_send_message_response` | 133 | Send message responses | `sendMessageResponse` |
+| `/ig_sub_iris_response` | 135 | Iris subscription responses | `irisSubResponse` |
+| `/ig_message_sync` | 146 | Message synchronization | `messageSync` |
+| `/ig_realtime_sub` | 149 | Realtime subscriptions | `realtimeSub` |
+| `/t_region_hint` | 150 | Region hints | `regionHint` |
+| `/t_fs` | 102 | Foreground state | `foregroundState` |
+| `/ig_send_message` | 132 | Send messages | `sendMessage` |
 
-### 🛡️ Enhanced Realtime Benefits
+### Realtime Features
 
-The enhanced realtime service solves common MQTT connection issues:
-
-- ✅ **99% reduction** in ECONNRESET errors
-- ✅ **Automatic reconnection** with exponential backoff
-- ✅ **Periodic ping system** to maintain connection health
-- ✅ **Fallback polling mode** if MQTT completely fails
-- ✅ **Robust error handling** for all connection types
-- ✅ **Zero manual intervention** required for reconnection
-
-### 📊 Comparison
-
-| Feature | Standard Realtime | Enhanced Realtime |
-|---------|------------------|-------------------|
-| Auto-reconnect | Manual with backoff | Native automatic |
-| Ping system | Keepalive only | Periodic + keepalive |
-| Error handling | Basic | Comprehensive |
-| Fallback mode | No | Yes, with polling |
-| Stability | Medium | High |
-| Production ready | Limited | Yes |
-
-For detailed realtime documentation, see [REALTIME.md](./REALTIME.md) and [ENHANCED-REALTIME.md](./ENHANCED-REALTIME.md).
+- ✅ **Correct Endpoint** - Uses edge-mqtt.facebook.com (Instagram's official MQTT broker)
+- ✅ **All Topics Supported** - Complete coverage of Instagram's realtime system
+- ✅ **Message Parsing** - Dedicated parsers for each message type
+- ✅ **Automatic Reconnection** - Robust error handling with exponential backoff
+- ✅ **Event System** - Comprehensive event handling for all realtime activities
 
 ## Error Handling
 
@@ -750,16 +660,14 @@ const ig = new IgApiClient();
 - `isSessionValid()` - Check if session is valid
 - `destroy()` - Cleanup resources
 
-#### Enhanced Realtime Methods
+#### Realtime Methods
 
-- `connectEnhancedRealtime()` - Connect to stable MQTT broker
-- `disconnectEnhancedRealtime()` - Disconnect from stable MQTT broker
-- `isEnhancedRealtimeConnected()` - Check enhanced connection status
-- `pingEnhancedRealtime()` - Send ping to stable broker
-- `getEnhancedRealtimeStats()` - Get enhanced connection statistics
-- `setEnhancedRealtimeReconnectOptions(options)` - Configure reconnection behavior
-- `setEnhancedRealtimePingInterval(intervalMs)` - Set custom ping intervals
-- `setEnhancedRealtimeFallbackPollingInterval(intervalMs)` - Configure fallback polling
+- `connectRealtime()` - Connect to MQTT broker
+- `disconnectRealtime()` - Disconnect from MQTT broker
+- `isRealtimeConnected()` - Check connection status
+- `pingRealtime()` - Send ping to broker
+- `getRealtimeStats()` - Get connection statistics
+- `setRealtimeReconnectOptions(options)` - Configure reconnection behavior
 
 ### Repositories
 
@@ -824,23 +732,14 @@ If you find this library useful, please consider:
 
 ## Changelog
 
-### v4.6.0 - Enhanced Realtime MQTT
-- 🚀 **NEW!** Enhanced Realtime MQTT service with improved stability
-- 🛡️ **Fixed** ECONNRESET and connection drop issues
-- 🔄 **Added** automatic reconnection with native MQTT support
-- 🏓 **Added** periodic ping system to maintain connection health
-- 🔄 **Added** fallback polling mode when MQTT fails completely
-- ⚙️ **Added** configurable ping intervals and fallback polling
-- 📊 **Improved** error handling for all connection types
-- 🧪 **Added** comprehensive test suite for enhanced realtime
-- 📚 **Added** detailed documentation for enhanced features
-
-### v4.5.0 - Realtime MQTT
-- 📡 **Added** Realtime MQTT service for real-time events
-- 🔐 **Added** MQTT v3.1.1 over TLS support
-- 📱 **Added** support for push notifications, DMs, presence, typing
-- 🔄 **Added** auto-reconnection with exponential backoff
-- 📋 **Added** comprehensive event system
+### v4.7.0 - New Realtime MQTT System
+- 🚀 **NEW!** Complete realtime system rewrite using edge-mqtt.facebook.com
+- 📡 **Added** Support for all Instagram realtime topics (GraphQL, Pub/Sub, Message Sync, Iris)
+- 🔧 **Added** Dedicated parsers for each message type
+- 🔄 **Added** Automatic reconnection with exponential backoff
+- 📊 **Added** Comprehensive event system for all realtime activities
+- 🛡️ **Fixed** All previous realtime implementation issues
+- 📚 **Updated** Complete documentation for new realtime system
 
 ### v1.0.0
 - Initial release
