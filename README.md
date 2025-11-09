@@ -1,5 +1,5 @@
 # nodejs-insta-private-api
-VERSION 3.3.1 Update library for latest Instagram Version 
+VERSION 4.8.3 Update library for latest Instagram Version 
 A pure JavaScript Instagram Private API client in written in CommonJS without TypeScript.
 
 [![npm version](https://badge.fury.io/js/nodejs-insta-private-api.svg)](https://www.npmjs.com/package/nodejs-insta-private-api)
@@ -71,45 +71,7 @@ main();
 
 ### Realtime Usage
 
-```javascript
-const { IgApiClient } = require('nodejs-insta-private-api');
 
-async function main() {
-  const ig = new IgApiClient();
-  
-  try {
-    // Login
-    await ig.login({ 
-      username: 'your_username', 
-      password: 'your_password',
-      email: 'your_email@example.com' 
-    });
-    
-    // Connect to realtime MQTT
-    await ig.connectRealtime();
-    
-    // Listen for real-time events
-    ig.realtime.on('messageSync', (data) => {
-      console.log('💬 Message sync:', data);
-    });
-    
-    ig.realtime.on('graphqlMessage', (data) => {
-      console.log('🔍 GraphQL message:', data);
-    });
-    
-    ig.realtime.on('pubsubMessage', (data) => {
-      console.log('📢 Pub/Sub message:', data);
-    });
-    
-    console.log('✅ Connected to realtime!');
-    
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-  }
-}
-
-main();
-```
 
 ## Table of Contents
 
@@ -459,84 +421,7 @@ if (ig.isRealtimeConnected()) {
 
 ### Listen for Events
 
-```javascript
-// Generic realtime event
-ig.realtime.on('realtimeEvent', (event) => {
-  console.log(`Topic: ${event.topic} (ID: ${event.topicId})`);
-  console.log(`Data: ${JSON.stringify(event.data)}`);
-});
 
-// Specific event types
-ig.realtime.on('messageSync', (data) => {
-  console.log('Message sync:', data);
-});
-
-ig.realtime.on('graphqlMessage', (data) => {
-  console.log('GraphQL message:', data);
-});
-
-ig.realtime.on('pubsubMessage', (data) => {
-  console.log('Pub/Sub message:', data);
-});
-
-ig.realtime.on('sendMessageResponse', (data) => {
-  console.log('Send message response:', data);
-});
-
-ig.realtime.on('irisSubResponse', (data) => {
-  console.log('Iris subscription response:', data);
-});
-
-ig.realtime.on('regionHint', (data) => {
-  console.log('Region hint:', data);
-});
-
-ig.realtime.on('realtimeSub', (data) => {
-  console.log('Realtime subscription:', data);
-});
-
-ig.realtime.on('foregroundState', (data) => {
-  console.log('Foreground state:', data);
-});
-
-ig.realtime.on('sendMessage', (data) => {
-  console.log('Send message:', data);
-});
-```
-
-### Realtime Management
-
-```javascript
-// Ping the broker
-ig.pingRealtime();
-
-// Get connection stats
-const stats = ig.getRealtimeStats();
-console.log(stats);
-
-// Configure reconnection
-ig.setRealtimeReconnectOptions({
-  maxAttempts: 5,
-  delay: 3000
-});
-
-// Disconnect
-ig.disconnectRealtime();
-```
-
-### Available MQTT Topics
-
-| Topic | ID | Description | Event |
-|-------|----|-------------|-------|
-| `/graphql` | 9 | GraphQL queries/mutations | `graphqlMessage` |
-| `/pubsub` | 88 | Pub/Sub messages | `pubsubMessage` |
-| `/ig_send_message_response` | 133 | Send message responses | `sendMessageResponse` |
-| `/ig_sub_iris_response` | 135 | Iris subscription responses | `irisSubResponse` |
-| `/ig_message_sync` | 146 | Message synchronization | `messageSync` |
-| `/ig_realtime_sub` | 149 | Realtime subscriptions | `realtimeSub` |
-| `/t_region_hint` | 150 | Region hints | `regionHint` |
-| `/t_fs` | 102 | Foreground state | `foregroundState` |
-| `/ig_send_message` | 132 | Send messages | `sendMessage` |
 
 ### Realtime Features
 
