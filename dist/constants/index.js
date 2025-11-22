@@ -18,6 +18,9 @@ const WEB_HOSTNAME = 'www.instagram.com';
 const HOST = `https://${HOSTNAME}/`;
 const WEBHOST = `https://${WEB_HOSTNAME}/`;
 
+// Import MQTT constants from constants.js
+const mqttConstants = require('./constants');
+
 module.exports = {
   APP_VERSION,
   APP_VERSION_CODE,
@@ -33,5 +36,6 @@ module.exports = {
   HOSTNAME,
   WEB_HOSTNAME,
   HOST,
-  WEBHOST
+  WEBHOST,
+  ...mqttConstants
 };
