@@ -1,17 +1,6 @@
-const RealtimeService = require('./realtime.service');
-const { Topics, RealtimeTopicsArray, REALTIME } = require('./topic');
-const { RegionHintParser, GraphqlParser, IrisParser, JsonParser, SkywalkerParser } = require('./parsers');
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RealtimeClient = void 0;
 
-module.exports = {
-  RealtimeService,
-  Topics,
-  RealtimeTopicsArray,
-  REALTIME,
-  Parsers: {
-    RegionHintParser,
-    GraphqlParser,
-    IrisParser,
-    JsonParser,
-    SkywalkerParser
-  }
-};
+const realtime_client_1 = require("./realtime.client");
+Object.defineProperty(exports, "RealtimeClient", { enumerable: true, get: function () { return realtime_client_1.RealtimeClient; } });
