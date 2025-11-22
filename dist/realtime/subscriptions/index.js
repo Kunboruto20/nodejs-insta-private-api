@@ -14,10 +14,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./graphql.parser"), exports);
-__exportStar(require("./iris.parser"), exports);
-__exportStar(require("./json.parser"), exports);
-__exportStar(require("./parser"), exports);
-__exportStar(require("./region-hint.parser"), exports);
-__exportStar(require("./skywalker.parser"), exports);
+__exportStar(require("./graphql.subscription"), exports);
+__exportStar(require("./skywalker.subscription"), exports);
 //# sourceMappingURL=index.js.map

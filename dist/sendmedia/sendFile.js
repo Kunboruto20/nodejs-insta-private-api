@@ -28,7 +28,7 @@
  *    but uploadPhoto.js + sendPhoto.js is preferred for image-specific flows.
  */
 
-const uploadFile = require('./uploadFile');
+const uploadFile = require('./uploadfFile');
 
 /**
  * @typedef {Object} SendFileOptions

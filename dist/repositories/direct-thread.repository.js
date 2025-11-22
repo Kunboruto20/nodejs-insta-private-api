@@ -89,7 +89,7 @@ class DirectThreadRepository extends Repository {
 
     const form = {
       action: 'send_item',
-      [recipientsType]: JSON.stringify(recipientsType === 'thread_ids' ? recipientsIds : [recipientsIds]),
+      [recipientsType]: JSON.stringify(recipientsIds),
       client_context: mutationToken,
       _csrftoken: this.client.state.cookieCsrfToken,
       device_id: this.client.state.deviceId,
