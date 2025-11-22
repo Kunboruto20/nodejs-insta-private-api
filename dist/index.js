@@ -1,11 +1,14 @@
 const IgApiClient = require('./core/client');
 const { IgApiClientError } = require('./errors');
-const { RealtimeService, Topics, REALTIME } = require('./realtime');
+const { RealtimeClient } = require('./realtime');
+const constants = require('./constants/constants');
+const sendmedia = require('./sendmedia');
 
 module.exports = {
   IgApiClient,
   IgApiClientError,
-  RealtimeService,
-  Topics,
-  REALTIME
+  RealtimeClient,
+  Topics: constants.Topics,
+  REALTIME: constants.REALTIME,
+  sendmedia
 };
