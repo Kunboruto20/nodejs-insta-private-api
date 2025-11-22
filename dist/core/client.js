@@ -17,7 +17,6 @@ const LocationRepository = require('../repositories/location.repository');
 const HashtagRepository = require('../repositories/hashtag.repository');
 const SearchService = require('../services/search.service');
 const LiveService = require('../services/live.service');
-const { RealtimeService } = require('../realtime');
 
 /**
  * IgApiClient
@@ -49,7 +48,6 @@ class IgApiClient extends EventEmitter {
     // Initialize services
     this.search = new SearchService(this);
     this.live = new LiveService(this);
-    this.realtime = new RealtimeService(this);
 
     // Create dm object for easier access (keeps backward compatibility)
     this.dm = {
@@ -112,75 +110,10 @@ class IgApiClient extends EventEmitter {
     // Cleanup resources - keep original behaviour for request streams if present
     try { this.request.error$.complete(); } catch (_) {}
     try { this.request.end$.complete(); } catch (_) {}
-    
-    // Disconnect realtime service if connected
-    if (this.realtime && this.realtime.isRealtimeConnected()) {
-      this.realtime.disconnect();
-    }
   }
 
   // -------------------------------
-  // === REALTIME MQTT METHODS
-  // -------------------------------
-
-  /**
-   * Connect to realtime MQTT service
-   * @returns {Promise<boolean>} True if connection succeeded
-   */
-  async connectRealtime() {
-    if (!this.isLoggedIn()) {
-      throw new Error('Must be logged in to use realtime service');
-    }
-    
-    return await this.realtime.connect();
-  }
-
-  /**
-   * Disconnect from realtime MQTT service
-   */
-  disconnectRealtime() {
-    if (this.realtime) {
-      this.realtime.disconnect();
-    }
-  }
-
-  /**
-   * Check if realtime service is connected
-   * @returns {boolean}
-   */
-  isRealtimeConnected() {
-    return this.realtime ? this.realtime.isRealtimeConnected() : false;
-  }
-
-  /**
-   * Send ping to MQTT broker
-   */
-  pingRealtime() {
-    if (this.realtime) {
-      this.realtime.ping();
-    }
-  }
-
-  /**
-   * Get realtime service statistics
-   * @returns {Object}
-   */
-  getRealtimeStats() {
-    return this.realtime ? this.realtime.getStats() : null;
-  }
-
-  /**
-   * Set reconnection options for realtime
-   * @param {Object} options - Reconnection options
-   */
-  setRealtimeReconnectOptions(options) {
-    if (this.realtime) {
-      this.realtime.setReconnectOptions(options);
-    }
-  }
-
-  // -------------------------------
-  // === NEW/ADDED helper methods
+  // === UTILITY HELPER METHODS
   // -------------------------------
 
   /**
