@@ -1,0 +1,54 @@
+# Session files - NEVER include these!
+test-session.json
+session.json
+*.session
+sessions/
+.instagram-session
+.session
+.instagram-session.json
+
+# Development/Test scripts
+mqtt-*-test.js
+test-*.js
+realtime-example.js
+example.js
+send-with-session.js
+send-message-final.js
+send-mqtt-message.js
+live-messages.js
+view-instagram-messages.js
+comprehensive-library-test.js
+test-all-conversations.js
+test-inbox-groups.js
+
+# Configuration files
+replit.md
+CHANGELOG.md
+
+# Development files
+.git
+.gitignore
+node_modules
+npm-debug.log
+*.log
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Development tools
+jest.config.js
+tsconfig.json
+tslint.json
