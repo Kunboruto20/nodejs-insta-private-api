@@ -1,6 +1,6 @@
 {
   "name": "nodejs-insta-private-api",
-  "version": "5.9.0",
+  "version": "5.9.1",
   "description": "A pure JavaScript Instagram Private API client with native MQTT real-time messaging support",
   "main": "dist/index.js",
   "scripts": {
