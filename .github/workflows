@@ -1,0 +1,29 @@
+# .github/workflows/bot.yml
+
+name: Botul meu GitHub Actions
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  issues:
+    types: [opened, edited]
+  workflow_dispatch: # permite rulare manuală
+
+jobs:
+  react:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Salut de la bot
+        run: echo "👋 Salut, Gyova! Ai făcut ceva în repository."
+
+      - name: Verificare fișiere modificate
+        uses: actions/checkout@v3
+
+      - name: Listare fișiere
+        run: |
+          echo "Fișiere modificate:"
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }}
