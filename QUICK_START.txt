@@ -1,0 +1,52 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║   📱 INSTAGRAM BOT - QUICK START (Copy & Use Immediately)                ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+STEP 1: Install Node.js (if you don't have it)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Download from: https://nodejs.org (version 18 or higher)
+
+
+STEP 2: Create a new folder for your bot
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+$ mkdir my-instagram-bot
+$ cd my-instagram-bot
+
+
+STEP 3: Install the library
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+$ npm install nodejs-insta-private-api
+
+
+STEP 4: Copy the bot script
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Create a file named: bot.js
+Copy and paste the code from "bot.js" (see below)
+
+
+STEP 5: Run the bot
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+$ node bot.js
+
+Then follow the prompts:
+• Enter your Instagram username
+• Enter your Instagram password
+• Bot will connect and listen for messages
+
+
+THAT'S IT! 🎉
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When you receive a message:
+1. It will show up in the console
+2. Type your reply
+3. Press Enter
+4. Message sends via MQTT instantly to Instagram
+
+Type "exit" to stop the bot.
+
+For next run, just type: node bot.js
+(It remembers your login in session.json)
+

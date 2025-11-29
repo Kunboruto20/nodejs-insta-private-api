@@ -1,24 +1,18 @@
 # nodejs-insta-private-api
 
-A complete JavaScript/Node.js client for Instagram's private API with **native real-time MQTT messaging**. Get direct messages, typing indicators, and presence updates instantly without polling.
+Instagram Private API client for Node.js with real-time MQTT direct messaging. Send and receive DMs instantly using Instagram's native protocol. Perfect for building Instagram bots with sub-second latency. No emulators, no wrappers—just direct access to Instagram's backend through reverse-engineered protocol support.
 
-This library talks directly to Instagram's backend servers using their undocumented private API endpoints and MQTT protocol. It's the real deal—no wrappers, no simulators, just pure access to what the official Instagram app uses.
+## Features
 
-## What You Get
-
-- **Complete API Access** - All of Instagram's private endpoints (users, posts, stories, direct messages, search, etc.)
-- **Real-Time MQTT** - Connect to Instagram's MQTT broker and receive messages instantly as they happen
-- **Session Management** - Login once, save your session, use it forever (or until Instagram blocks it)
-- **Automatic Retries** - Built-in handling for rate limits and transient failures
-- **Media Support** - Upload photos, videos, audio files with full control
-- **Zero External MQTT Dependencies** - Everything is built-in, no separate MQTT library needed
-- **Pure JavaScript** - Works in Node.js 18+, no compilation required
-
-## Fair Warning ⚠️
-
-Reverse engineering Instagram is genuinely difficult. Instagram's API changes without notice, their security measures are sophisticated, and using this library could get your account flagged or banned if you're not careful. **Use a test account for development.**
-
-**Any pull request to fix bugs or add features is welcome and appreciated.** If you find something broken, please open an issue or contribute a fix. This is a community effort.
+- ✅ **Real-time MQTT messaging** - Receive and send DMs with <500ms latency
+- ✅ **Bidirectional communication** - Send messages back through the same MQTT connection
+- ✅ **Auto-reply bots** - Build keyword-triggered or scheduled response bots
+- ✅ **Session persistence** - Avoid repeated logins with saved sessions
+- ✅ **Full Instagram API** - Stories, media uploads, search, comments, user info
+- ✅ **Group chat support** - Automatic detection with thread-based messaging
+- ✅ **IRIS subscription protocol** - Reliable message delivery with compression
+- ✅ **Automatic reconnection** - Exponential backoff with connection pooling
+- ✅ **Pure JavaScript** - No compilation required, works in Node.js 18+
 
 ## Installation
 
@@ -26,923 +20,981 @@ Reverse engineering Instagram is genuinely difficult. Instagram's API changes wi
 npm install nodejs-insta-private-api
 ```
 
-Requires Node.js 18 or higher.
+Requires **Node.js 18 or higher**.
 
 ## Quick Start
 
-### 1. Basic Login
+### Step 1: Login and Save Session
 
 ```javascript
 const { IgApiClient } = require('nodejs-insta-private-api');
+const fs = require('fs');
 
 const ig = new IgApiClient();
 
+// Login
 await ig.login({
   username: 'your_instagram_username',
-  password: 'your_password',
+  password: 'your_instagram_password',
   email: 'your_email@example.com'
 });
 
-console.log('Logged in!');
+// Save session for future use (persists authentication)
+fs.writeFileSync('session.json', JSON.stringify(ig.state.serialize(), null, 2));
+console.log('✅ Session saved to session.json');
 ```
 
-### 2. Listen for Direct Messages in Real-Time
-
-```javascript
-const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
-
-const ig = new IgApiClient();
-await ig.login({
-  username: 'your_username',
-  password: 'your_password',
-  email: 'your_email@example.com'
-});
-
-// Set up real-time listener
-const realtime = new RealtimeClient(ig);
-
-realtime.on('connected', () => {
-  console.log('Connected to Instagram MQTT broker');
-});
-
-realtime.on('receive', (topic, messages) => {
-  messages.forEach(msg => {
-    console.log(`Message from ${msg.from_user_id}: ${msg.body}`);
-  });
-});
-
-await realtime.connect({
-  graphQlSubs: ['ig_sub_direct'],
-  irisData: null
-});
-
-// Now send yourself a message on Instagram—it'll appear instantly here
-```
-
-That's it. Real-time messaging with just a few lines of code.
-
----
-
-## MQTT Real-Time Messaging Guide
-
-This is where the library gets powerful. MQTT (Message Queuing Telemetry Transport) lets you receive updates the moment they happen on Instagram—direct messages, typing indicators, presence, everything.
-
-### How It Works
-
-When you call `realtime.connect()`, the library:
-1. Authenticates to Instagram's MQTT broker (`edge-mqtt.facebook.com`)
-2. Subscribes to topics you specify
-3. Starts receiving real-time events immediately
-4. Emits them as JavaScript events for you to handle
-
-No polling, no delay. Just instant updates from Instagram's servers.
-
-### Real-Time Event Types
-
-The library emits different events for different types of messages:
-
-#### `message` Event - Direct Messages (Most Common)
-Real direct messages from threads:
-```javascript
-realtime.on('message', (msg) => {
-  if (msg.message && msg.message.items) {
-    msg.message.items.forEach(item => {
-      if (item.text) {
-        console.log(`DM: ${item.text}`);
-      }
-    });
-  }
-});
-```
-
-#### `direct` Event - Realtime Direct Messages
-Alternative DM source from GraphQL subscriptions:
-```javascript
-realtime.on('direct', (data) => {
-  const value = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-  if (value.text) {
-    console.log(`Direct: ${value.text}`);
-  }
-});
-```
-
-#### `threadUpdate` Event - Group Chat & Thread Changes
-When threads are updated (new members, name changes, etc.):
-```javascript
-realtime.on('threadUpdate', (data) => {
-  console.log(`Thread ${data.meta.thread_id} updated`);
-  console.log(`Operation: ${data.meta.op}`);
-  if (data.update.name) {
-    console.log(`New name: ${data.update.name}`);
-  }
-});
-```
-
-#### `iris` Event - Message Sync Data
-Low-level message sync events:
-```javascript
-realtime.on('iris', (data) => {
-  console.log('Iris sync event', data);
-});
-```
-
-#### `realtimeSub` Event - GraphQL Subscriptions
-Real-time GraphQL subscription updates:
-```javascript
-realtime.on('realtimeSub', (data) => {
-  console.log('Realtime update', data);
-});
-```
-
-### Complete MQTT Example - Receive All Messages
-
-Here's a production-ready example that handles everything:
+### Step 2: Load Session and Start Listening
 
 ```javascript
 const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
 const fs = require('fs');
 
-async function main() {
-  const ig = new IgApiClient();
-  
-  // Load saved session or login fresh
-  const sessionFile = 'instagram-session.json';
-  
-  if (fs.existsSync(sessionFile)) {
-    console.log('Using saved session...');
-    const session = JSON.parse(fs.readFileSync(sessionFile, 'utf-8'));
-    await ig.loadSession(session);
-  } else {
-    console.log('Logging in...');
-    await ig.login({
-      username: process.env.INSTAGRAM_USERNAME,
-      password: process.env.INSTAGRAM_PASSWORD,
-      email: process.env.INSTAGRAM_EMAIL
-    });
-    
-    // Save session for next time
-    const session = await ig.saveSession();
-    fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2));
-    console.log('Session saved.');
-  }
-  
-  console.log(`Logged in as @${process.env.INSTAGRAM_USERNAME}\n`);
-  
-  // Set up real-time listener
-  const realtime = new RealtimeClient(ig);
-  
-  // When MQTT connects successfully
-  realtime.on('connected', () => {
-    console.log('✓ Connected to Instagram real-time');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Listening for incoming messages...\n');
-  });
-  
-  // Receive messages
-  realtime.on('receive', (topic, messages) => {
-    messages.forEach(msg => {
-      const time = new Date().toLocaleTimeString();
-      
-      // Text message
-      if (msg.body) {
-        console.log(`[${time}] 💬 Message from ${msg.from_user_id}:`);
-        console.log(`    "${msg.body}"\n`);
-      }
-      
-      // Typing indicator
-      if (msg.is_typing) {
-        console.log(`[${time}] ✏️  ${msg.from_user_id} is typing...\n`);
-      }
-      
-      // Presence (online/offline)
-      if (msg.presence_status) {
-        console.log(`[${time}] 🟢 ${msg.from_user_id} is ${msg.presence_status}\n`);
-      }
-    });
-  });
-  
-  // Handle errors
-  realtime.on('error', (error) => {
-    console.error('❌ MQTT Error:', error.message);
-  });
-  
-  realtime.on('disconnect', () => {
-    console.log('⚠️ Disconnected from MQTT');
-  });
-  
-  // Connect to MQTT
-  console.log('Connecting to Instagram...\n');
-  
-  await realtime.connect({
-    // Subscribe to direct messages
-    graphQlSubs: ['ig_sub_direct', 'ig_sub_iris'],
-    irisData: null
-  });
-  
-  // Keep the process running
-  console.log('Press Ctrl+C to stop.\n');
-  await new Promise(() => {});
-}
+const ig = new IgApiClient();
 
-main().catch(error => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
-```
+// Load saved session
+const session = JSON.parse(fs.readFileSync('session.json'));
+await ig.state.deserialize(session);
 
-Run it:
-
-```bash
-export INSTAGRAM_USERNAME="your_username"
-export INSTAGRAM_PASSWORD="your_password"
-export INSTAGRAM_EMAIL="your_email@example.com"
-
-node realtime-listener.js
-```
-
-Now send yourself a direct message on Instagram. Watch it appear instantly in your terminal. That's MQTT in action.
-
-### Sending Direct Messages
-
-You can send messages while listening for responses. Here's how:
-
-```javascript
-const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
-
-async function sendAndListen() {
-  const ig = new IgApiClient();
-  await ig.login({
-    username: 'your_username',
-    password: 'your_password',
-    email: 'your_email@example.com'
-  });
-  
-  // Get a user by username
-  const user = await ig.user.getByUsername('target_username');
-  console.log(`Found user: @${user.username}`);
-  
-  // Get their DM thread
-  const thread = await ig.direct.getThread(user.id);
-  
-  // Send a message
-  const result = await thread.sendMessage({
-    text: 'Hey! This message was sent via nodejs-insta-private-api.'
-  });
-  
-  console.log('Message sent!');
-  
-  // Now listen for their reply in real-time
-  const realtime = new RealtimeClient(ig);
-  
-  realtime.on('message', (msg) => {
-    if (msg.message && msg.message.items) {
-      msg.message.items.forEach(item => {
-        if (item.text) {
-          console.log(`${user.username} replied: ${item.text}`);
-        }
-      });
-    }
-  });
-  
-  await realtime.connect({
-    graphQlSubs: ['ig_sub_direct'],
-    irisData: null
-  });
-  
-  console.log('Listening for replies... (Press Ctrl+C to stop)');
-}
-
-sendAndListen().catch(console.error);
-```
-
-### Sending Messages to Multiple Users (Broadcasts)
-
-Want to send the same message to a group? Use broadcasts:
-
-```javascript
-const { IgApiClient } = require('nodejs-insta-private-api');
-
-async function broadcastMessage() {
-  const ig = new IgApiClient();
-  await ig.login({
-    username: 'your_username',
-    password: 'your_password',
-    email: 'your_email@example.com'
-  });
-  
-  // Get user IDs for people you want to message
-  const user1 = await ig.user.getByUsername('friend1');
-  const user2 = await ig.user.getByUsername('friend2');
-  
-  // Send the same message to both
-  const result = await ig.directThread.broadcast({
-    userIds: [user1.id, user2.id],
-    item: 'text',
-    form: { text: 'Hey everyone!' },
-    signed: true
-  });
-  
-  console.log('Broadcast sent to:', result.recipient_count, 'users');
-}
-
-broadcastMessage().catch(console.error);
-```
-
-### Group Chats & Multiple Threads
-
-Work with group conversations:
-
-```javascript
-const { IgApiClient } = require('nodejs-insta-private-api');
-
-async function getGroupChats() {
-  const ig = new IgApiClient();
-  await ig.login({
-    username: 'your_username',
-    password: 'your_password',
-    email: 'your_email@example.com'
-  });
-  
-  // Get all conversations
-  const inbox = await ig.direct.getInbox();
-  
-  // Filter for group chats
-  inbox.threads.forEach(thread => {
-    if (thread.users.length > 1) {
-      console.log(`Group: ${thread.name || 'Unnamed'}`);
-      console.log(`Members: ${thread.users.map(u => u.username).join(', ')}`);
-      console.log(`Last message: ${thread.last_permanent_item?.text}\n`);
-    }
-  });
-}
-
-getGroupChats().catch(console.error);
-```
-
-Send a message to a group:
-
-```javascript
-const { IgApiClient } = require('nodejs-insta-private-api');
-
-async function sendGroupMessage() {
-  const ig = new IgApiClient();
-  await ig.login({
-    username: 'your_username',
-    password: 'your_password',
-    email: 'your_email@example.com'
-  });
-  
-  // Get the group thread
-  const inbox = await ig.direct.getInbox();
-  const groupThread = inbox.threads.find(t => t.name === 'My Group');
-  
-  if (groupThread) {
-    await groupThread.sendMessage({
-      text: 'Hey group! This is from the API.'
-    });
-    
-    console.log('Message sent to group!');
-  }
-}
-
-sendGroupMessage().catch(console.error);
-```
-
----
-
-### Advanced MQTT Usage
-
-#### Listen to Multiple Event Types at Once
-
-Here's a real-world example that handles everything:
-
-```javascript
-const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
-
-async function advancedListener() {
-  const ig = new IgApiClient();
-  await ig.login({
-    username: 'your_username',
-    password: 'your_password',
-    email: 'your_email@example.com'
-  });
-  
-  const realtime = new RealtimeClient(ig);
-  
-  // Track who's typing
-  const typingUsers = new Set();
-  
-  // Handle connection
-  realtime.on('connected', () => {
-    console.log('✓ Real-time connection established\n');
-  });
-  
-  // Handle incoming messages
-  realtime.on('message', (msg) => {
-    if (msg.message && msg.message.items) {
-      msg.message.items.forEach(item => {
-        if (item.text) {
-          console.log(`📬 Message from ${item.user_id}: "${item.text}"`);
-        }
-        if (item.media) {
-          console.log(`📬 ${item.user_id} sent media: ${item.media.type}`);
-        }
-      });
-    }
-  });
-  
-  // Handle typing indicators
-  realtime.on('receive', (topic, messages) => {
-    messages.forEach(msg => {
-      if (msg.is_typing) {
-        typingUsers.add(msg.from_user_id);
-        console.log(`✏️  ${msg.from_user_id} is typing...`);
-        
-        // Remove from typing after 5 seconds
-        setTimeout(() => {
-          typingUsers.delete(msg.from_user_id);
-        }, 5000);
-      }
-    });
-  });
-  
-  // Handle online status
-  realtime.on('receive', (topic, messages) => {
-    messages.forEach(msg => {
-      if (msg.presence_status) {
-        console.log(`🟢 ${msg.from_user_id} is ${msg.presence_status}`);
-      }
-    });
-  });
-  
-  // Handle errors gracefully
-  realtime.on('error', (error) => {
-    console.error('⚠️ MQTT Error:', error.message);
-  });
-  
-  realtime.on('disconnect', () => {
-    console.log('⚠️ Disconnected (will auto-reconnect)');
-  });
-  
-  // Connect
-  await realtime.connect({
-    graphQlSubs: ['ig_sub_direct', 'ig_sub_iris'],
-    irisData: null
-  });
-  
-  console.log('Listening...\n');
-  
-  // Keep running
-  await new Promise(() => {});
-}
-
-advancedListener().catch(console.error);
-```
-
-#### Reconnect on Disconnect
-
-By default, the library auto-reconnects. But you can handle it manually if you need to:
-
-```javascript
+// Create real-time client
 const realtime = new RealtimeClient(ig);
 
-realtime.on('disconnect', async () => {
-  console.log('Disconnected, reconnecting...');
-  
-  // Wait a bit before reconnecting
-  await new Promise(resolve => setTimeout(resolve, 5000));
-  
-  try {
-    await realtime.connect({
-      graphQlSubs: ['ig_sub_direct'],
-      irisData: null
-    });
-    console.log('Reconnected!');
-  } catch (error) {
-    console.error('Reconnect failed:', error.message);
-  }
-});
-
-await realtime.connect({
-  graphQlSubs: ['ig_sub_direct'],
-  irisData: null
-});
-```
-
-### MQTT Event Types
-
-The `receive` event gives you access to different message types:
-
-#### Direct Messages
-```javascript
-realtime.on('receive', (topic, messages) => {
-  messages.forEach(msg => {
-    // Text message
-    if (msg.body) {
-      console.log(`Text: ${msg.body}`);
-    }
-    
-    // Media (photo/video)
-    if (msg.media) {
-      console.log(`Media: ${msg.media.type}`);
-    }
-    
-    // Link preview
-    if (msg.link) {
-      console.log(`Link: ${msg.link.url}`);
-    }
-  });
-});
-```
-
-#### Typing Indicators
-```javascript
-realtime.on('receive', (topic, messages) => {
-  messages.forEach(msg => {
-    if (msg.is_typing) {
-      console.log(`${msg.from_user_id} is typing...`);
-    }
-  });
-});
-```
-
-#### Presence (Online Status)
-```javascript
-realtime.on('receive', (topic, messages) => {
-  messages.forEach(msg => {
-    if (msg.presence_status) {
-      console.log(`${msg.from_user_id} is now ${msg.presence_status}`);
-    }
-  });
-});
-```
-
-#### Notifications (Likes, Comments, Follows)
-```javascript
-realtime.on('receive', (topic, messages) => {
-  messages.forEach(msg => {
-    if (msg.notification_type === 'like') {
-      console.log(`${msg.from_user_id} liked your post`);
-    }
-    if (msg.notification_type === 'comment') {
-      console.log(`${msg.from_user_id} commented: ${msg.comment_text}`);
-    }
-    if (msg.notification_type === 'follow') {
-      console.log(`${msg.from_user_id} started following you`);
-    }
-  });
-});
-```
-
-### Connection Options
-
-When calling `realtime.connect()`, you can pass options:
-
-```javascript
-await realtime.connect({
-  // Which topics to subscribe to
-  graphQlSubs: [
-    'ig_sub_direct',          // Direct messages
-    'ig_sub_iris',            // Message sync
-    'ig_sub_graphql',         // GraphQL updates
-    'ig_sub_presence',        // Online status
-    'ig_sub_notification'     // Notifications (likes, comments, follows)
-  ],
-  
-  // Message sync data (usually null)
-  irisData: null,
-  
-  // Enable detailed logging
-  enableTrace: false,
-  
-  // Auto-reconnect if disconnected
-  autoReconnect: true,
-  
-  // Override TLS options if needed
-  additionalTlsOptions: {}
-});
-```
-
----
-
-## API Methods Reference
-
-### User Operations
-
-```javascript
-// Get a user by username
-const user = await ig.user.getByUsername('username');
-console.log(user.id, user.username, user.full_name);
-
-// Get user info by ID
-const info = await ig.user.info(userId);
-
-// Search for users
-const results = await ig.user.search({ username: 'instagram' });
-
-// Get user's followers
-const followers = await ig.user.getFollowers(userId);
-
-// Get user's following list
-const following = await ig.user.getFollowing(userId);
-
-// Follow a user
-await ig.user.follow(userId);
-
-// Unfollow a user
-await ig.user.unfollow(userId);
-
-// Block a user
-await ig.user.block(userId);
-
-// Unblock a user
-await ig.user.unblock(userId);
-```
-
-### Direct Messages
-
-```javascript
-// Get inbox (all conversation threads)
+// Fetch inbox (required for MQTT subscription)
 const inbox = await ig.direct.getInbox();
-inbox.threads.forEach(thread => {
-  console.log(`Thread with ${thread.user.username}: ${thread.last_permanent_item?.text}`);
+
+// Connect to Instagram's MQTT broker
+await realtime.connect({
+  graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+  skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+  irisData: inbox
 });
 
-// Get a specific conversation
-const thread = await ig.direct.getThread(userId);
+console.log('✅ Connected! Listening for messages...');
 
-// Send a text message
-await thread.sendMessage({
-  text: 'Hello!'
+// Messages arrive in real-time
+realtime.on('message', (data) => {
+  const msg = data.message;
+  console.log(`📨 DM from ${msg.from_user_id}: ${msg.text}`);
 });
-
-// Send a disappearing message (view once)
-await thread.sendMessage({
-  text: 'This disappears',
-  disappearingMediaType: 'permanent_media'
-});
-
-// Send a link
-await thread.sendMessage({
-  link: {
-    url: 'https://example.com',
-    title: 'Example'
-  }
-});
-
-// Get conversation history
-const messages = await thread.messages();
-messages.forEach(msg => {
-  console.log(`${msg.user.username}: ${msg.text}`);
-});
-```
-
-### Posts & Media
-
-```javascript
-// Get your feed
-const feed = await ig.feed.timeline();
-const items = await feed.items();
-items.forEach(post => {
-  console.log(`@${post.user.username}: ${post.caption?.text || '(no caption)'}`);
-});
-
-// Get a specific post
-const media = await ig.media.info(mediaId);
-console.log(`${media.caption?.text}, Likes: ${media.like_count}`);
-
-// Like a post
-await ig.media.like(mediaId);
-
-// Unlike a post
-await ig.media.unlike(mediaId);
-
-// Comment on a post
-await ig.media.comment(mediaId, 'Nice post!');
-
-// Get comments
-const comments = await ig.media.comments(mediaId);
-
-// Like a comment
-await ig.media.likeComment(commentId);
-```
-
-### Stories
-
-```javascript
-// Get all stories from people you follow
-const stories = await ig.feed.reels_tray();
-
-// Watch a story
-await ig.story.seen(storyId);
-```
-
-### Upload Media
-
-```javascript
-// Upload a photo
-const photo = {
-  path: './photo.jpg',
-  caption: 'Check this out!'
-};
-await ig.media.upload.photo(photo);
-
-// Upload a video
-const video = {
-  path: './video.mp4',
-  caption: 'New video!',
-  thumbnail: './thumbnail.jpg' // optional
-};
-await ig.media.upload.video(video);
-
-// Upload carousel (multiple photos/videos)
-const items = [
-  { path: './photo1.jpg', type: 'photo' },
-  { path: './video.mp4', type: 'video' }
-];
-await ig.media.upload.carousel(items);
-```
-
-### Search
-
-```javascript
-// Search for users
-const users = await ig.user.search({ username: 'instagram' });
-
-// Search for hashtags
-const hashtags = await ig.hashtag.search('javascript');
-
-// Get posts from a hashtag
-const feed = await ig.hashtag.feed('javascript');
-const posts = await feed.items();
 ```
 
 ---
 
-## Session Management
+## Building Instagram Bots
 
-Sessions let you avoid logging in repeatedly. Instagram sessions contain cookies and tokens—save them and reuse them.
-
-### Save a Session
+### Example 1: Auto-Reply Bot (Keyword Triggered)
 
 ```javascript
-const ig = new IgApiClient();
+const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
+const fs = require('fs');
+
+(async () => {
+  const ig = new IgApiClient();
+  const session = JSON.parse(fs.readFileSync('session.json'));
+  await ig.state.deserialize(session);
+
+  const realtime = new RealtimeClient(ig);
+  const inbox = await ig.direct.getInbox();
+  
+  await realtime.connect({
+    graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+    skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+    irisData: inbox
+  });
+
+  console.log('🤖 Auto-Reply Bot Active\n');
+
+  realtime.on('message', async (data) => {
+    const msg = data.message;
+    if (!msg?.text) return; // Skip media messages
+
+    console.log(`📨 [${msg.from_user_id}]: ${msg.text}`);
+
+    // Auto-reply logic
+    let reply = null;
+
+    if (msg.text.toLowerCase().includes('hello')) {
+      reply = '👋 Hey! Thanks for reaching out!';
+    } else if (msg.text.toLowerCase().includes('help')) {
+      reply = '❓ How can I assist you?';
+    } else if (msg.text.toLowerCase().includes('thanks')) {
+      reply = '😊 You\'re welcome!';
+    }
+
+    // Send reply if matched
+    if (reply) {
+      try {
+        await realtime.directCommands.sendTextViaRealtime(
+          msg.thread_id,
+          reply
+        );
+        console.log(`✅ Replied: ${reply}\n`);
+      } catch (err) {
+        console.error(`❌ Failed to send reply: ${err.message}\n`);
+      }
+    }
+  });
+
+  // Keep bot running
+  await new Promise(() => {});
+})();
+```
+
+### Example 2: Group Message Logger Bot
+
+```javascript
+const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
+const fs = require('fs');
+
+(async () => {
+  const ig = new IgApiClient();
+  const session = JSON.parse(fs.readFileSync('session.json'));
+  await ig.state.deserialize(session);
+
+  const realtime = new RealtimeClient(ig);
+  const inbox = await ig.direct.getInbox();
+  
+  await realtime.connect({
+    graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+    skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+    irisData: inbox
+  });
+
+  const logs = [];
+
+  realtime.on('message', (data) => {
+    const msg = data.message;
+    if (!msg?.text) return;
+
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      userId: msg.from_user_id,
+      threadId: msg.thread_id,
+      text: msg.text,
+      isGroup: msg.thread_id // Can check thread metadata
+    };
+
+    logs.push(logEntry);
+    console.log(`📝 Logged: [${logEntry.userId}] ${logEntry.text.substring(0, 50)}...`);
+
+    // Save logs every 10 messages
+    if (logs.length % 10 === 0) {
+      fs.writeFileSync('message_logs.json', JSON.stringify(logs, null, 2));
+      console.log(`💾 Saved ${logs.length} messages to message_logs.json`);
+    }
+  });
+
+  console.log('📊 Message Logger Bot Started\n');
+  await new Promise(() => {});
+})();
+```
+
+### Example 3: Smart Response Bot (Multi-trigger)
+
+```javascript
+const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
+const fs = require('fs');
+
+(async () => {
+  const ig = new IgApiClient();
+  const session = JSON.parse(fs.readFileSync('session.json'));
+  await ig.state.deserialize(session);
+
+  const realtime = new RealtimeClient(ig);
+  const inbox = await ig.direct.getInbox();
+  
+  await realtime.connect({
+    graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+    skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+    irisData: inbox
+  });
+
+  // Response rules
+  const responseRules = {
+    'ping': 'pong! 🏓',
+    'time': () => new Date().toLocaleTimeString(),
+    'hello': 'Hey there! 👋',
+    'help': 'Available commands: ping, time, hello, help',
+    'status': '✅ Bot is online and running!',
+  };
+
+  console.log('🤖 Smart Response Bot Started\n');
+
+  realtime.on('message', async (data) => {
+    const msg = data.message;
+    if (!msg?.text) return;
+
+    const command = msg.text.toLowerCase().trim();
+    console.log(`📨 Command: ${command}`);
+
+    for (const [trigger, response] of Object.entries(responseRules)) {
+      if (command.includes(trigger)) {
+        try {
+          const reply = typeof response === 'function' ? response() : response;
+          
+          await realtime.directCommands.sendTextViaRealtime(
+            msg.thread_id,
+            reply
+          );
+          console.log(`✅ Replied: ${reply}\n`);
+          break;
+        } catch (err) {
+          console.error(`❌ Error: ${err.message}\n`);
+        }
+      }
+    }
+  });
+
+  await new Promise(() => {});
+})();
+```
+
+### Example 4: Rate-Limited Response Bot
+
+```javascript
+const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
+const fs = require('fs');
+
+(async () => {
+  const ig = new IgApiClient();
+  const session = JSON.parse(fs.readFileSync('session.json'));
+  await ig.state.deserialize(session);
+
+  const realtime = new RealtimeClient(ig);
+  const inbox = await ig.direct.getInbox();
+  
+  await realtime.connect({
+    graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+    skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+    irisData: inbox
+  });
+
+  // Rate limiting: max 1 reply per user per minute
+  const userRateLimit = new Map();
+  const RATE_LIMIT_MS = 60000; // 1 minute
+
+  const canReply = (userId) => {
+    const lastReply = userRateLimit.get(userId);
+    if (!lastReply || Date.now() - lastReply > RATE_LIMIT_MS) {
+      userRateLimit.set(userId, Date.now());
+      return true;
+    }
+    return false;
+  };
+
+  console.log('🤖 Rate-Limited Bot Started\n');
+
+  realtime.on('message', async (data) => {
+    const msg = data.message;
+    if (!msg?.text) return;
+
+    if (!canReply(msg.from_user_id)) {
+      console.log(`⏱️  Rate limited for user ${msg.from_user_id}`);
+      return;
+    }
+
+    try {
+      await realtime.directCommands.sendTextViaRealtime(
+        msg.thread_id,
+        `🤖 Thanks for your message! I'll get back to you soon.`
+      );
+      console.log(`✅ Replied to ${msg.from_user_id}\n`);
+    } catch (err) {
+      console.error(`❌ Error: ${err.message}\n`);
+    }
+  });
+
+  await new Promise(() => {});
+})();
+```
+
+### Example 5: Bulk DM Sender (Infinite Loop - Mass Messaging)
+
+```javascript
+const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
+const fs = require('fs');
+const readline = require('readline');
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+const question = (query) => new Promise(resolve => rl.question(query, resolve));
+
+(async () => {
+  const ig = new IgApiClient();
+  
+  // Login
+  const username = await question('📧 Username: ');
+  const password = await question('🔑 Password: ');
+  
+  await ig.login({ username, password });
+  console.log('✅ Logged in!\n');
+
+  // Fetch inbox
+  const inbox = await ig.direct.getInbox();
+  const threads = inbox.inbox.threads;
+  console.log(`📋 Found ${threads.length} conversations\n`);
+
+  // Show groups
+  threads.forEach((thread, index) => {
+    console.log(`  ${index + 1}. ${thread.thread_title || 'Group ' + (index + 1)}`);
+  });
+
+  // Select groups
+  const selectedInput = await question('\n📍 Enter group numbers (1,2,3): ');
+  const selectedThreads = selectedInput
+    .split(',')
+    .map(s => parseInt(s.trim()) - 1)
+    .map(i => threads[i])
+    .filter(t => t);
+
+  // Load message from file
+  const filePath = await question('📄 Enter text file path: ');
+  const messageText = fs.readFileSync(filePath, 'utf8').trim();
+
+  // Select mode
+  console.log('\n📮 Mode: 1=Line by line, 2=Entire text');
+  const mode = parseInt(await question('Choose: '));
+
+  // Set delay
+  const delaySeconds = parseInt(await question('⏱️  Delay (seconds): '));
+
+  rl.close();
+
+  // Connect to MQTT
+  const realtime = new RealtimeClient(ig);
+  await realtime.connect({
+    graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+    skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+    irisData: inbox
+  });
+
+  console.log('\n🚀 INFINITE LOOP STARTED - Press Ctrl+C to stop\n');
+
+  let roundCount = 0;
+  let totalSent = 0;
+
+  if (mode === 1) {
+    // LINE BY LINE MODE
+    const lines = messageText.split('\n').filter(line => line.trim().length > 0);
+
+    while (true) {
+      roundCount++;
+      console.log(`\n🔄 ROUND #${roundCount}`);
+
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const line = lines[lineIdx];
+
+        for (let i = 0; i < selectedThreads.length; i++) {
+          const thread = selectedThreads[i];
+          
+          try {
+            await realtime.directCommands.sendTextViaRealtime(
+              thread.thread_id,
+              line
+            );
+            totalSent++;
+            console.log(`✅ Sent to group ${i + 1}`);
+          } catch (err) {
+            console.log(`❌ Failed: ${err.message}`);
+          }
+
+          if ((lineIdx < lines.length - 1 || i < selectedThreads.length - 1) && delaySeconds > 0) {
+            await new Promise(r => setTimeout(r, delaySeconds * 1000));
+          }
+        }
+      }
+
+      console.log(`📊 Total sent: ${totalSent}`);
+      console.log(`⏳ Waiting ${delaySeconds}s before next round...\n`);
+      await new Promise(r => setTimeout(r, delaySeconds * 1000));
+    }
+
+  } else {
+    // ENTIRE TEXT MODE
+    while (true) {
+      roundCount++;
+      console.log(`\n🔄 ROUND #${roundCount}`);
+
+      for (let i = 0; i < selectedThreads.length; i++) {
+        const thread = selectedThreads[i];
+        
+        try {
+          await realtime.directCommands.sendTextViaRealtime(
+            thread.thread_id,
+            messageText
+          );
+          totalSent++;
+          console.log(`✅ Sent to group ${i + 1}`);
+        } catch (err) {
+          console.log(`❌ Failed: ${err.message}`);
+        }
+
+        if (i < selectedThreads.length - 1 && delaySeconds > 0) {
+          await new Promise(r => setTimeout(r, delaySeconds * 1000));
+        }
+      }
+
+      console.log(`📊 Total sent: ${totalSent}`);
+      console.log(`⏳ Waiting ${delaySeconds}s before next round...\n`);
+      await new Promise(r => setTimeout(r, delaySeconds * 1000));
+    }
+  }
+})();
+```
+
+**Features:**
+- ✅ Select multiple groups to message
+- ✅ Load messages from text file
+- ✅ Mode 1: Send line-by-line in infinite loop
+- ✅ Mode 2: Send entire text repeatedly
+- ✅ Custom delay between messages
+- ✅ Real-time delivery via MQTT
+- ✅ Runs forever until manually stopped
+
+---
+
+## API Reference
+
+### IgApiClient
+
+#### Authentication
+
+```javascript
+// Login with credentials
 await ig.login({
   username: 'your_username',
   password: 'your_password',
   email: 'your_email@example.com'
 });
 
-const session = await ig.saveSession();
-console.log(JSON.stringify(session));
-```
-
-### Load a Saved Session
-
-```javascript
-const ig = new IgApiClient();
+// Load from saved session
 const session = JSON.parse(fs.readFileSync('session.json'));
+await ig.state.deserialize(session);
 
-await ig.loadSession(session);
-console.log('Loaded session');
+// Save session
+const serialized = ig.state.serialize();
+fs.writeFileSync('session.json', JSON.stringify(serialized));
 ```
 
-### Sessions Expire
-
-If you get a 401 error, the session expired. Just login again and get a fresh session. This is normal.
+#### Direct Messages
 
 ```javascript
-try {
-  // Use the session
-  await ig.user.info(userId);
-} catch (error) {
-  if (error.status === 401) {
-    console.log('Session expired, logging in again...');
-    await ig.login({
-      username: 'your_username',
-      password: 'your_password',
-      email: 'your_email@example.com'
-    });
+// Get inbox with all conversations
+const inbox = await ig.direct.getInbox();
+
+// Get specific thread messages
+const thread = await ig.direct.getThread(threadId);
+
+// Send text message (HTTP - slower than MQTT)
+await ig.direct.send({
+  threadId: threadId,
+  item: {
+    type: 'text',
+    text: 'Hello there!'
   }
-}
+});
+
+// Mark messages as seen
+await ig.direct.markMessagesSeen(threadId, [messageId]);
+```
+
+### RealtimeClient
+
+#### Connection
+
+```javascript
+const realtime = new RealtimeClient(ig);
+
+// Connect to MQTT
+await realtime.connect({
+  graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+  skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+  irisData: inbox  // Required: inbox data from ig.direct.getInbox()
+});
+```
+
+#### Sending Messages via MQTT
+
+```javascript
+// Send text message (fast - real-time)
+await realtime.directCommands.sendTextViaRealtime(
+  threadId,
+  'Your message here'
+);
+```
+
+**Complete Example:**
+
+```javascript
+const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
+
+const ig = new IgApiClient();
+const realtime = new RealtimeClient(ig);
+
+// Send MQTT message
+await realtime.directCommands.sendTextViaRealtime(
+  threadId,
+  'Hello! 🚀'
+);
+```
+
+#### Listening for Events
+
+```javascript
+// Incoming messages
+realtime.on('message', (data) => {
+  const msg = data.message;
+  console.log(msg.text);      // Message text
+  console.log(msg.from_user_id); // Sender user ID
+  console.log(msg.thread_id);    // Conversation thread ID
+});
+
+// Connection status
+realtime.on('connected', () => console.log('Connected'));
+realtime.on('disconnected', () => console.log('Disconnected'));
+
+// Errors
+realtime.on('error', (err) => console.error('Error:', err.message));
+```
+
+### User Information
+
+```javascript
+// Get user info by username
+const user = await ig.user.info('username');
+
+// Search users
+const results = await ig.user.search({ username: 'query' });
+
+// Get followers
+const followers = await ig.user.followers('user_id');
+
+// Get following
+const following = await ig.user.following('user_id');
 ```
 
 ---
 
-## How MQTT Authentication Works
+## Message Structure
 
-Behind the scenes, here's what happens:
+Messages arrive as event data with this structure:
 
-1. **Login** - You provide username, password, email
-2. **Instagram Response** - Returns a Bearer token with embedded sessionid
-3. **MQTT Connection** - The sessionid is extracted from the token and used to authenticate to the MQTT broker
-4. **Real-Time Messages** - Broker accepts authentication and starts sending you updates
+```javascript
+realtime.on('message', (data) => {
+  const msg = data.message;
+  
+  console.log({
+    text: msg.text,              // Message content (string)
+    from_user_id: msg.from_user_id,  // Sender's Instagram user ID
+    thread_id: msg.thread_id,    // Conversation thread ID
+    timestamp: msg.timestamp,    // Unix timestamp
+    item_id: msg.item_id         // Unique message ID
+  });
+});
+```
 
-The library handles all of this automatically. You just provide credentials and call `realtime.connect()`.
+---
 
-The MQTT broker is at `edge-mqtt.facebook.com:443` using TLS. All payloads are compressed with deflate.
+## Performance & Latency
+
+| Operation | Latency | Method |
+|-----------|---------|--------|
+| Receive incoming DM | 100-500ms | MQTT (real-time) |
+| Send DM via MQTT | 200-800ms | Direct MQTT publish |
+| Send DM via HTTP | 1-3s | REST API fallback |
+| Get inbox | 500ms-2s | REST API |
+
+**MQTT is significantly faster** for both receiving and sending messages.
+
+---
+
+## Best Practices
+
+### 1. Session Management
+```javascript
+// Always save session after first login
+fs.writeFileSync('session.json', JSON.stringify(ig.state.serialize()));
+
+// Reuse sessions to avoid repeated logins
+const session = JSON.parse(fs.readFileSync('session.json'));
+await ig.state.deserialize(session);
+```
+
+### 2. Error Handling
+```javascript
+realtime.on('message', async (data) => {
+  try {
+    const msg = data.message;
+    // Process message...
+    
+    await realtime.directCommands.sendTextViaRealtime(msg.thread_id, reply);
+  } catch (err) {
+    console.error('Error:', err.message);
+    // Don't crash - continue listening
+  }
+});
+```
+
+### 3. Rate Limiting
+```javascript
+// Implement rate limiting to avoid Instagram detection
+const userLastSeen = new Map();
+
+if (userLastSeen.has(userId) && Date.now() - userLastSeen.get(userId) < 5000) {
+  return; // Skip if user sent message <5s ago
+}
+userLastSeen.set(userId, Date.now());
+```
+
+### 4. Connection Monitoring
+```javascript
+let isConnected = false;
+
+realtime.on('connected', () => {
+  isConnected = true;
+  console.log('✅ Connected');
+});
+
+realtime.on('disconnected', () => {
+  isConnected = false;
+  console.log('❌ Disconnected - will auto-reconnect');
+});
+
+realtime.on('error', (err) => {
+  console.error('Connection error:', err.message);
+});
+```
+
+### 5. Process Management (PM2)
+```bash
+# Save as bot.js, then run:
+pm2 start bot.js --name "instagram-bot" --restart-delay 5000
+pm2 logs instagram-bot
+```
+
+---
+
+## How It Works
+
+1. **Authentication** - Login with credentials or load saved session
+2. **IRIS Subscription** - Fetch inbox data and subscribe to real-time topics
+3. **MQTT Connection** - Connect to `edge-mqtt.facebook.com` (Instagram's MQTT broker)
+4. **Message Sync** - Subscribe to MESSAGE_SYNC topic (topic 146) for real-time DM updates
+5. **Event Emission** - Incoming messages trigger 'message' events with full data
+6. **Direct Sending** - Send replies back through MQTT with millisecond latency
+
+**Result**: Full-duplex communication with Instagram DMs in real-time, no polling required.
 
 ---
 
 ## Troubleshooting
 
-### Connection Hangs on `realtime.connect()`
-
-If the connection just sits there and never fires the `connected` event:
-
-1. **Check credentials** - Are they 100% correct? Try logging in on the Instagram app to verify.
-2. **Check your IP** - Instagram might be rate-limiting your IP. Wait a few hours and try again.
-3. **Try a fresh session** - Delete your saved session file and login fresh.
-4. **Network issues** - Check your firewall and proxy settings. MQTT needs port 443 open to `edge-mqtt.facebook.com`.
-
-### Getting 400/401 Errors
-
-- **401 Unauthorized** - Your session expired. Login again.
-- **400 Bad Request** - Either credentials are wrong or Instagram changed something. Double-check the login payload.
-
-### Messages Not Being Received
-
-1. **Check subscriptions** - Make sure `'ig_sub_direct'` is in your `graphQlSubs` array.
-2. **Send a test message** - Have another account send you a DM while listening.
-3. **Check the event** - Use `realtime.on('receiveRaw', ...)` to see all raw messages if parsing fails.
-4. **Enable debug logs**:
-
+### "Session invalid" or "Login required"
 ```javascript
-const realtime = new RealtimeClient(ig);
-realtime.on('receive', (topic, messages) => {
-  console.log(`Topic: ${topic.path}`);
-  console.log(`Messages:`, JSON.stringify(messages, null, 2));
+// Session may have expired, login again
+await ig.login({ username, password, email });
+fs.writeFileSync('session.json', JSON.stringify(ig.state.serialize()));
+```
+
+### Not receiving messages
+```javascript
+// Make sure to fetch inbox BEFORE connecting
+const inbox = await ig.direct.getInbox();
+await realtime.connect({ irisData: inbox, ... });
+```
+
+### Connection drops after minutes
+```javascript
+// Auto-reconnection is built-in
+// Monitor with:
+realtime.on('disconnected', () => {
+  console.log('Reconnecting...');
 });
 ```
 
-### Getting Rate Limited
-
-Instagram aggressively rate-limits API access. If you get errors like "too many requests":
-
-- **Space out your requests** - Add delays between API calls
-- **Use exponential backoff** - Wait longer between retries
-- **Switch accounts** - Use multiple accounts if doing heavy testing
-- **Respect the platform** - Don't hammer it with requests
-
-The library has built-in retry logic, but be mindful of how many requests you're making.
-
----
-
-## Examples
-
-Complete working examples are in the `examples/` directory. Run them like:
-
-```bash
-export INSTAGRAM_USERNAME="your_username"
-export INSTAGRAM_PASSWORD="your_password"
-export INSTAGRAM_EMAIL="your_email@example.com"
-
-node examples/listen-to-messages.js
+### "rate_limit_error"
+```javascript
+// Instagram throttling - implement delays
+// Wait 5-10 seconds between high-frequency operations
+setTimeout(() => { /* next operation */ }, 5000);
 ```
 
-The `listen-to-messages.js` example shows a real-time listener set up for production use.
-
 ---
 
-## Important Notes
+## Advanced Usage
 
-### Account Safety
+### Custom Message Filtering
 
-- **Use test accounts** - Don't use your main Instagram account while developing
-- **Respect rate limits** - Instagram monitors API usage and will block aggressive clients
-- **Don't spam** - Don't send automated bulk messages or spam. That's how accounts get banned
-- **Be honest** - If your app uses this library, be transparent about it to your users
+```javascript
+realtime.on('message', (data) => {
+  const msg = data.message;
+  
+  // Only process text messages from specific users
+  if (msg.text && whitelistedUsers.includes(msg.from_user_id)) {
+    processMessage(msg);
+  }
+});
+```
 
-### Reverse Engineering Reality
+### Batch Processing
 
-Instagram's API is intentionally private. They:
-- Change endpoints without warning
-- Block accounts that look suspicious
-- Update security measures frequently
-- Actively work against tools like this
+```javascript
+const messageQueue = [];
 
-**This library works today because of reverse engineering efforts from the community.** When it breaks, it's usually because Instagram changed something. Check the issues and help fix it.
+realtime.on('message', (data) => {
+  messageQueue.push(data.message);
+});
 
-**Your pull requests are valuable.** If you find a bug or fix something that broke, please contribute back.
-
----
-
-## License
-
-MIT - Use it, modify it, learn from it. No warranty included.
+// Process batch every 30 seconds
+setInterval(() => {
+  if (messageQueue.length > 0) {
+    processBatch(messageQueue);
+    messageQueue.length = 0;
+  }
+}, 30000);
+```
 
 ---
 
 ## Contributing
 
-Reverse engineering Instagram is a community effort. If you:
-- Find a bug → Open an issue
-- Have a fix → Submit a pull request
-- Find something broken → Help us understand what changed
-- Want to improve documentation → Contribute!
+Contributions welcome! Please fork the repository and submit pull requests.
 
-The library is only useful if it keeps working as Instagram changes. Help keep it alive.
+## License
+
+MIT License - See LICENSE file for details
+
+## Disclaimer
+
+This library is for educational purposes. Instagram's Terms of Service prohibit automated bots. Use responsibly and at your own risk. The author is not responsible for account suspension or other consequences.
 
 ---
 
-**Built by developers who spent way too much time reverse engineering Instagram.** If this library helps you, please consider contributing back or starring the repo.
+## Support
+
+For issues, questions, or feature requests:
+- 📝 GitHub Issues: https://github.com/Kunboruto20/nodejs-insta-private-api/issues
+- 💬 Discussions: https://github.com/Kunboruto20/nodejs-insta-private-api/discussions
+
+---
+
+**Version**: 5.57.9 | **Last Updated**: 2025-11-29 | **Status**: Production Ready
+
+---
+
+## Interactive Bot Script
+
+Ready-to-use command-line bot for sending and receiving Instagram DMs interactively. No configuration needed - just run and login!
+
+```javascript
+#!/usr/bin/env node
+const readline = require('readline');
+const fs = require('fs');
+const path = require('path');
+const { IgApiClient, RealtimeClient } = require('nodejs-insta-private-api');
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: true
+});
+
+const question = (query) => new Promise(resolve => rl.question(query, resolve));
+
+(async () => {
+  try {
+    console.log('\n╔═══════════════════════════════════════════════════════════╗');
+    console.log('║     📱 Instagram DM Bot - Interactive Mode v5.57.9        ║');
+    console.log('║            Type messages & receive DMs in real-time       ║');
+    console.log('╚═══════════════════════════════════════════════════════════╝\n');
+
+    let useExistingSession = false;
+    const sessionFile = 'session.json';
+    
+    if (fs.existsSync(sessionFile)) {
+      const response = await question('📂 Found saved session. Use it? (y/n): ');
+      useExistingSession = response.toLowerCase() === 'y';
+    }
+
+    let ig = new IgApiClient();
+
+    if (useExistingSession) {
+      console.log('\n📂 Loading saved session...');
+      const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+      await ig.state.deserialize(session);
+      console.log('✅ Session loaded!\n');
+    } else {
+      console.log('\n🔐 Enter your Instagram credentials:\n');
+      const username = await question('📧 Username: ');
+      const password = await question('🔑 Password: ');
+      const email = await question('📨 Email (press Enter to skip): ');
+
+      console.log('\n⏳ Authenticating...');
+      
+      try {
+        await ig.login({
+          username: username,
+          password: password,
+          email: email || undefined
+        });
+      } catch (err) {
+        console.error('❌ Login failed:', err.message);
+        process.exit(1);
+      }
+
+      fs.writeFileSync(sessionFile, JSON.stringify(ig.state.serialize(), null, 2));
+      console.log('✅ Logged in! Session saved to session.json\n');
+    }
+
+    console.log('📋 Fetching inbox...');
+    const inbox = await ig.direct.getInbox();
+    console.log(`✅ Got ${inbox.inbox.threads.length} conversations\n`);
+
+    const realtime = new RealtimeClient(ig);
+    
+    console.log('🔌 Connecting to MQTT...');
+    await realtime.connect({
+      graphQlSubs: ['ig_sub_direct', 'ig_sub_direct_v2_message_sync'],
+      skywalkerSubs: ['presence_subscribe', 'typing_subscribe'],
+      irisData: inbox
+    });
+
+    console.log('✅ Connected!\n');
+    console.log('╔═══════════════════════════════════════════════════════════╗');
+    console.log('║              🤖 Bot is ACTIVE and listening!              ║');
+    console.log('║                                                           ║');
+    console.log('║  • Messages appear as they arrive                          ║');
+    console.log('║  • Type your reply and press Enter                         ║');
+    console.log('║  • Type "exit" to stop                                     ║');
+    console.log('╚═══════════════════════════════════════════════════════════╝\n');
+
+    let currentThreadId = null;
+    let messageCount = 0;
+
+    realtime.on('message', async (data) => {
+      const msg = data.message;
+      if (!msg?.text || msg.text === 'no text') return;
+
+      currentThreadId = msg.thread_id;
+      messageCount++;
+
+      console.log('\n' + '─'.repeat(60));
+      console.log(`📨 MESSAGE #${messageCount} from User ${msg.from_user_id}`);
+      console.log('─'.repeat(60));
+      console.log(msg.text);
+      console.log('─'.repeat(60) + '\n');
+
+      rl.prompt();
+    });
+
+    realtime.on('error', (err) => {
+      console.error(`\n❌ Error: ${err.message}\n`);
+    });
+
+    realtime.on('disconnected', () => {
+      console.log('\n⚠️  Connection lost. Reconnecting...\n');
+    });
+
+    rl.setPrompt('💬 Reply: ');
+    rl.prompt();
+
+    rl.on('line', async (input) => {
+      const message = input.trim();
+
+      if (message.toLowerCase() === 'exit') {
+        console.log('\n👋 Bot stopped. Goodbye!\n');
+        process.exit(0);
+      }
+
+      if (!message) {
+        rl.prompt();
+        return;
+      }
+
+      if (!currentThreadId) {
+        console.log('⏳ Waiting for a message...');
+        rl.prompt();
+        return;
+      }
+
+      try {
+        await realtime.directCommands.sendTextViaRealtime(
+          currentThreadId,
+          message
+        );
+        console.log('✅ Sent!\n');
+      } catch (err) {
+        console.error(`❌ Failed: ${err.message}\n`);
+      }
+
+      rl.prompt();
+    });
+
+    rl.on('close', () => {
+      console.log('\n👋 Bot stopped.');
+      process.exit(0);
+    });
+
+  } catch (error) {
+    console.error('\n❌ Error:', error.message);
+    process.exit(1);
+  }
+})();
+```
+
+### How to Use:
+
+1. **Install**
+```bash
+npm install nodejs-insta-private-api
+```
+
+2. **Create bot.js** - Copy the script above
+
+3. **Run**
+```bash
+node bot.js
+```
+
+4. **Login** - Enter your Instagram credentials
+
+5. **Chat** - Type replies when messages arrive
+
+### Features:
+- ✅ Interactive login (or uses saved session)
+- ✅ Real-time message receiving via MQTT
+- ✅ Instant message delivery via MQTT
+- ✅ Session persistence (no re-login needed)
+- ✅ Clean CLI interface with emoji formatting
+- ✅ Auto-reconnection on disconnection
+
+### Example Output:
+```
+📧 Username: your_username
+🔑 Password: ••••••••••
+
+🤖 Bot is ACTIVE and listening!
+
+────────────────────────────────────────────────────────────
+📨 MESSAGE #1 from User 123456789
+────────────────────────────────────────────────────────────
+Hey! How are you?
+────────────────────────────────────────────────────────────
+
+💬 Reply: I'm doing great! How about you?
+✅ Sent!
+```
+
+### Troubleshooting:
+
+**Session expired:**
+```bash
+rm session.json
+node bot.js  # Login again
+```
+
+**Module not found:**
+Make sure you used: `require('nodejs-insta-private-api')` not `require('./dist/index.js')`
