@@ -155,6 +155,13 @@ class DirectCommands {
             },
         });
     }
+    async sendTextViaRealtime(threadId, text, clientContext) {
+        return this.sendText({
+            text,
+            threadId,
+            clientContext,
+        });
+    }
     async markAsSeen({ threadId, itemId }) {
         return this.sendCommand({
             action: 'mark_seen',

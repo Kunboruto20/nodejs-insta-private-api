@@ -37,10 +37,24 @@ class AccountRepository extends Repository {
 
   /**
    * Login with username/password
-   * @param {Object} credentials - { username, password, email }
+   * @param {Object|string} credentialsOrUsername - { username, password } or username string
+   * @param {string} passwordArg - password (if first arg is username string)
    */
-  async login(credentials) {
-    const { username, password } = credentials;
+  async login(credentialsOrUsername, passwordArg) {
+    let username, password;
+    
+    // Support both object and separate parameters
+    if (typeof credentialsOrUsername === 'object' && credentialsOrUsername !== null) {
+      username = credentialsOrUsername.username;
+      password = credentialsOrUsername.password;
+    } else {
+      username = credentialsOrUsername;
+      password = passwordArg;
+    }
+    
+    if (!username || !password) {
+      throw new Error('Username and password are required');
+    }
 
     // Ensure encryption keys are ready
     if (!this.client.state.passwordEncryptionPubKey) {
@@ -199,6 +213,48 @@ class AccountRepository extends Repository {
         aesEncrypted
       ]).toString('base64')
     };
+  }
+
+  /**
+   * Send password recovery request to Instagram via email
+   * @param {string} query - Username, email, or phone number
+   */
+  async sendRecoveryFlowEmail(query) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: '/api/v1/accounts/send_recovery_flow_email/',
+        method: 'POST',
+        form: this.client.request.sign({
+          _csrftoken: this.client.state.cookieCsrfToken,
+          adid: '',
+          guid: this.client.state.uuid,
+          device_id: this.client.state.deviceId,
+          query,
+        }),
+      });
+      return response.body;
+    });
+  }
+
+  /**
+   * Send password recovery request to Instagram via SMS
+   * @param {string} query - Username, email, or phone number
+   */
+  async sendRecoveryFlowSms(query) {
+    return this.requestWithRetry(async () => {
+      const response = await this.client.request.send({
+        url: '/api/v1/accounts/send_recovery_flow_sms/',
+        method: 'POST',
+        form: this.client.request.sign({
+          _csrftoken: this.client.state.cookieCsrfToken,
+          adid: '',
+          guid: this.client.state.uuid,
+          device_id: this.client.state.deviceId,
+          query,
+        }),
+      });
+      return response.body;
+    });
   }
 }
 

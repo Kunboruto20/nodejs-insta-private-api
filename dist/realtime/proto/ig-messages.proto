@@ -1,0 +1,83 @@
+// Instagram Direct Messages Protocol (Protobuf)
+// Used for real-time message sync via MQTT
+
+syntax = "proto3";
+
+package ig.iris;
+
+// DirectMessage - Single message in a thread
+message DirectMessage {
+  int64 message_id = 1;
+  int64 user_id = 2;
+  string content = 3;
+  int64 timestamp = 4;
+  
+  // Message type: text, photo, video, etc.
+  string type = 5;
+  
+  // Reactions: emoji -> count
+  map<string, int32> reactions = 6;
+  
+  // Whether user has seen
+  bool is_sent = 7;
+  bool is_delivered = 8;
+  bool is_read = 9;
+}
+
+// DirectThread - Conversation thread
+message DirectThread {
+  int64 thread_id = 1;
+  repeated int64 participant_ids = 2;
+  string thread_title = 3;
+  int64 last_message_ts = 4;
+  
+  // Admin user ID
+  int64 admin_user_id = 5;
+  
+  // Is group thread
+  bool is_group = 6;
+  
+  // Is archived
+  bool is_archived = 7;
+}
+
+// TypingIndicator - User typing signal
+message TypingIndicator {
+  int64 thread_id = 1;
+  int64 from_user_id = 2;
+  int64 timestamp = 3;
+  
+  // 0 = typing, 1 = stopped
+  int32 state = 4;
+}
+
+// PresenceStatus - User online/offline
+message PresenceStatus {
+  int64 user_id = 1;
+  
+  // 0 = offline, 1 = active, 2 = idle
+  int32 status = 2;
+  
+  int64 timestamp = 3;
+  int64 last_active = 4;
+}
+
+// DeltaMessage - Incremental sync update
+message DeltaMessage {
+  int64 sequence_id = 1;
+  string operation = 2; // add, update, delete
+  
+  oneof data {
+    DirectMessage message = 3;
+    DirectThread thread = 4;
+    TypingIndicator typing = 5;
+    PresenceStatus presence = 6;
+  }
+}
+
+// Acknowledgment - Server expects ACK for delivery
+message Acknowledgment {
+  int64 message_id = 1;
+  int64 thread_id = 2;
+  int64 timestamp = 3;
+}

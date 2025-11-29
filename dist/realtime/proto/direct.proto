@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package ig.direct;
+
+import "common.proto";
+
+// Direct message protocol - Specific implementation for DMs
+
+message DirectInboxMessageContent {
+  string text = 1;
+  repeated ig.common.MediaAttachment media = 2;
+  repeated ig.common.Link links = 3;
+}
+
+message DirectInboxMessage {
+  string id = 1;
+  int64 user_id = 2;
+  int64 timestamp = 3;
+  
+  string item_type = 4; // text, media_share, animated_media, etc
+  DirectInboxMessageContent content = 5;
+  
+  map<string, string> reactions = 6;
+  
+  bool is_sent = 7;
+  bool is_delivered = 8;
+  bool is_seen = 9;
+  
+  int32 is_forward = 10;
+  int32 forwarded_from_id = 11;
+}
+
+message DirectInboxThread {
+  int64 thread_id = 1;
+  repeated int64 user_ids = 2;
+  
+  string thread_title = 3;
+  int64 last_activity_at = 4;
+  
+  DirectInboxMessage last_message = 5;
+  
+  int32 unfollowers_count = 6;
+  int32 thread_v2_id = 7;
+  
+  bool is_pin = 8;
+  bool is_muted = 9;
+  bool is_archived = 10;
+  bool has_newer = 11;
+}
+
+message DirectInbox {
+  repeated DirectInboxThread threads = 1;
+  string cursor = 2;
+  bool has_older = 3;
+}
+
+message DirectSync {
+  int64 seq_id = 1;
+  int64 timestamp = 2;
+  
+  repeated DirectInboxMessage messages = 3;
+  repeated DirectInboxThread threads = 4;
+  
+  map<string, int64> seq_ids = 5; // per-thread seq tracking
+}

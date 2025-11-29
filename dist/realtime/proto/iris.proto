@@ -1,0 +1,188 @@
+syntax = "proto3";
+
+package ig.iris;
+
+import "common.proto";
+
+// Real Instagram Iris Protocol - Direct Messages & Realtime
+// Based on reverse-engineered instagram_mqtt package
+
+message IrisPayload {
+  string action = 1;
+  int64 seq_id = 2;
+  repeated IrisItem items = 3;
+  map<string, string> metadata = 4;
+}
+
+message IrisItem {
+  string id = 1;
+  string type = 2; // message, thread, typing, presence, deletion
+  int64 timestamp = 3;
+  
+  oneof data {
+    MessageSyncMessage message = 4;
+    ThreadUpdate thread = 5;
+    TypingIndicator typing = 6;
+    PresenceIndicator presence = 7;
+  }
+  
+  string op = 8; // add, replace, delete
+  string path = 9; // JSON path to item
+}
+
+// Message from sync - includes text, media, reactions
+message MessageSyncMessage {
+  string item_id = 1;
+  int64 user_id = 2;
+  int64 timestamp = 3;
+  
+  string thread_id = 4;
+  string thread_v2_id = 5;
+  
+  // Message type: text, media, like, hashtag, media_share, location, voice_media, animated_media
+  string item_type = 6;
+  string text = 7;
+  
+  // Media references
+  MediaData media = 8;
+  VoiceMediaData voice_media = 9;
+  AnimatedMediaData animated_media = 10;
+  MediaShareData media_share = 11;
+  
+  // Reactions
+  ReactionData reactions = 12;
+  
+  // Metadata
+  bool is_sent = 13;
+  bool is_delivered = 14;
+  bool is_read = 15;
+  
+  // Voice/Video Call info
+  string raven_media_type = 16;
+  map<string, string> extra_data = 17;
+}
+
+message MediaData {
+  string id = 1;
+  int32 media_type = 2; // 1=image, 2=video, 8=album
+  
+  int32 original_width = 3;
+  int32 original_height = 4;
+  
+  repeated string image_urls = 5;
+  repeated string video_urls = 6;
+}
+
+message VoiceMediaData {
+  string id = 1;
+  string audio_src = 2;
+  int32 duration = 3;
+  repeated int32 waveform_data = 4;
+  
+  bool seen = 5;
+  int32 seen_count = 6;
+}
+
+message AnimatedMediaData {
+  string id = 1;
+  string url = 2;
+  bool is_sticker = 3;
+  bool is_random = 4;
+}
+
+message MediaShareData {
+  string id = 1;
+  string code = 2;
+  int32 media_type = 3;
+  
+  int32 original_width = 4;
+  int32 original_height = 5;
+  
+  string caption = 6;
+  int32 like_count = 7;
+  int32 comment_count = 8;
+  int64 taken_at = 9;
+}
+
+message ReactionData {
+  map<int64, string> emojis = 1; // user_id -> emoji
+  int32 likes_count = 2;
+  int32 emojis_count = 3;
+  
+  repeated ReactionItem likes = 4;
+  repeated ReactionItem emoji_reactions = 5;
+}
+
+message ReactionItem {
+  int64 sender_id = 1;
+  int64 timestamp = 2;
+  string client_context = 3;
+  string emoji = 4;
+}
+
+// Thread Update - conversation data
+message ThreadUpdate {
+  string thread_id = 1;
+  string thread_v2_id = 2;
+  
+  // Participants
+  repeated int64 user_ids = 3;
+  repeated int64 left_user_ids = 4;
+  repeated int64 admin_user_ids = 5;
+  
+  // Thread info
+  string thread_title = 6;
+  int64 last_activity_at = 7;
+  
+  bool is_group = 8;
+  bool is_archived = 9;
+  bool is_muted = 10;
+  bool is_pinned = 11;
+  bool is_spam = 12;
+  
+  string thread_type = 13; // private, group
+  int32 folder = 14;
+  
+  // Last message in thread
+  MessageSyncMessage last_message = 15;
+  
+  // Pagination
+  bool has_older = 16;
+  bool has_newer = 17;
+  string newest_cursor = 18;
+  string oldest_cursor = 19;
+  string next_cursor = 20;
+  
+  map<string, ThreadMetadata> metadata = 21;
+}
+
+message ThreadMetadata {
+  string key = 1;
+  string value = 2;
+}
+
+// Typing indicator
+message TypingIndicator {
+  int64 thread_id = 1;
+  int64 from_user_id = 2;
+  string state = 3; // started, stopped
+  int64 timestamp = 4;
+}
+
+// User presence indicator
+message PresenceIndicator {
+  int64 user_id = 1;
+  string status = 2; // active, inactive
+  int64 last_seen_at = 3;
+  int64 timestamp = 4;
+}
+
+// Delta - incremental update
+message Delta {
+  string operation = 1; // add, update, delete
+  string path = 2;
+  
+  IrisItem item = 3;
+  
+  map<string, string> context = 4;
+}

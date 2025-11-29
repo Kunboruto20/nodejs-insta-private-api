@@ -73,6 +73,31 @@ class MQTToTClient extends mqtts_1.MqttClient {
             qosLevel: message.qosLevel,
         });
     }
+    /**
+     * Special listener for specific topics with transformers
+     * @param {Object} config - { topic, transformer }
+     * @param {Function} handler - Callback to handle transformed data
+     */
+    listen(config, handler) {
+        this.mqttotDebug(`🎧 [LISTEN] Setting up listener on topic ${config.topic} with transformer`);
+        console.log(`\n🎧 [LISTEN METHOD] Registered for topic: ${config.topic}`);
+        this.on('message', async (msg) => {
+            console.log(`📨 [LISTEN CALLBACK] Received MQTT message on topic ${msg.topic} (looking for ${config.topic})`);
+            if (msg.topic === config.topic) {
+                console.log(`✅ [LISTEN MATCH] Topic ${msg.topic} matches! Processing...`);
+                try {
+                    const data = await config.transformer({ payload: msg.payload });
+                    console.log(`🔄 [LISTEN TRANSFORM] Transformer completed, calling handler`);
+                    handler(data);
+                    console.log(`✅ [LISTEN HANDLER] Handler called successfully`);
+                } catch (e) {
+                    console.log(`❌ [LISTEN ERROR] Error in transformer for topic ${config.topic}: ${e.message}`);
+                    this.mqttotDebug(`Error in transformer for topic ${config.topic}: ${e.message}`);
+                    this.emit('error', e);
+                }
+            }
+        });
+    }
 }
 exports.MQTToTClient = MQTToTClient;
 function mqttotConnectFlow(payload, requirePayload) {

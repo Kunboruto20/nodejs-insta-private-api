@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.debugChannel = exports.tryUnzipAsync = exports.compressDeflate = exports.prepareLogString = void 0;
+exports.delay = exports.debugChannel = exports.tryUnzipAsync = exports.compressDeflate = exports.prepareLogString = void 0;
 
 const pako = require('pako');
 const debug = require('debug');
@@ -28,3 +28,8 @@ function debugChannel(channel) {
     return debug(`ig:mqtt:${channel}`);
 }
 exports.debugChannel = debugChannel;
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+exports.delay = delay;

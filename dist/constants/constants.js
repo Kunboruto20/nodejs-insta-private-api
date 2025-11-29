@@ -32,6 +32,7 @@ exports.Topics = {
         id: '146',
         path: '/ig_message_sync',
         parser: new parsers_1.IrisParser(),
+        noParse: true,
     },
     REALTIME_SUB: {
         id: '149',

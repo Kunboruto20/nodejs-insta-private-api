@@ -9,6 +9,14 @@ const mqtts_1 = require("mqtts");
 const errors_1 = require("../errors");
 const eventemitter3_1 = require("eventemitter3");
 const mixins_1 = require("./mixins");
+const iris_handshake_1 = require("./protocols/iris.handshake");
+const skywalker_protocol_1 = require("./protocols/skywalker.protocol");
+const presence_manager_1 = require("./features/presence.manager");
+const dm_sender_1 = require("./features/dm-sender");
+const error_handler_1 = require("./features/error-handler");
+const gap_handler_1 = require("./features/gap-handler");
+const enhanced_direct_commands_1 = require("./commands/enhanced.direct.commands");
+const presence_typing_mixin_1 = require("./mixins/presence-typing.mixin");
 class RealtimeClient extends eventemitter3_1.EventEmitter {
     get mqtt() {
         return this._mqtt;
@@ -18,7 +26,7 @@ class RealtimeClient extends eventemitter3_1.EventEmitter {
      * @param {IgApiClient} ig
      * @param mixins - by default MessageSync and Realtime mixins are used
      */
-    constructor(ig, mixins = [new mixins_1.MessageSyncMixin(), new mixins_1.RealtimeSubMixin()]) {
+    constructor(ig, mixins = [new mixins_1.MessageSyncMixin(), new mixins_1.RealtimeSubMixin(), new presence_typing_mixin_1.PresenceTypingMixin()]) {
         super();
         this.realtimeDebug = (0, shared_1.debugChannel)('realtime');
         this.messageDebug = this.realtimeDebug.extend('message');
@@ -26,9 +34,128 @@ class RealtimeClient extends eventemitter3_1.EventEmitter {
         this.emitError = (e) => this.emit('error', e);
         this.emitWarning = (e) => this.emit('warning', e);
         this.ig = ig;
+        this.threads = new Map();
+        
+        // Initialize v5.18+ features
+        this.irisHandshake = new iris_handshake_1.IrisHandshake(this);
+        this.skywalkerProtocol = new skywalker_protocol_1.SkywalkerProtocol(this);
+        this.presenceManager = new presence_manager_1.PresenceManager(this);
+        this.dmSender = new dm_sender_1.DMSender(this);
+        this.errorHandler = new error_handler_1.ErrorHandler(this);
+        this.gapHandler = new gap_handler_1.GapHandler(this);
+        this.directCommands = new enhanced_direct_commands_1.EnhancedDirectCommands(this);
+        
         this.realtimeDebug(`Applying mixins: ${mixins.map(m => m.name).join(', ')}`);
         (0, mixins_1.applyMixins)(mixins, this, this.ig);
     }
+
+    /**
+     * NEW METHOD: Start Real-Time Listener with Auto-Inbox Fetch + MQTT
+     * Automatically fetches all conversations and connects to MQTT
+     * @param options - Optional configuration
+     */
+    async startRealTimeListener(options = {}) {
+        try {
+            console.log('🚀 Starting Real-Time Listener...');
+            
+            // Fetch inbox data for IRIS subscription (THIS IS CRITICAL!)
+            console.log('📋 Fetching inbox (IRIS data)...');
+            const inboxData = await this.ig.feed.directInbox().request();
+            
+            console.log('📡 Connecting to MQTT with IRIS subscription...');
+            await this.connect({
+                graphQlSubs: [
+                    'ig_sub_direct',
+                    'ig_sub_direct_v2_message_create',
+                ],
+                skywalkerSubs: [
+                    'presence_subscribe',
+                    'typing_subscribe',
+                ],
+                irisData: inboxData
+            });
+            
+            console.log('✅ MQTT Connected with IRIS\n');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('✅ Real-Time Listener ACTIVE');
+            console.log('📝 Trimite mesaj la @ydoska_199');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+            
+            // Setup message handlers
+            this._setupMessageHandlers();
+            
+            return { success: true };
+        } catch (error) {
+            console.error('❌ Failed:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Setup automatic message handlers
+     */
+    _setupMessageHandlers() {
+        // Handle direct messages
+        this.on('message', (data) => {
+            const msg = this._parseMessage(data);
+            if (msg) {
+                this.emit('message_live', msg);
+            }
+        });
+
+        // Handle iris messages
+        this.on('iris', (data) => {
+            const msg = this._parseIrisMessage(data);
+            if (msg) {
+                this.emit('message_live', msg);
+            }
+        });
+    }
+
+    /**
+     * Parse direct message
+     */
+    _parseMessage(data) {
+        try {
+            const msg = data.message;
+            if (!msg) return null;
+            
+            const threadInfo = this.threads.get(msg.thread_id);
+            return {
+                id: msg.id,
+                from: msg.from_username || msg.from_user_id,
+                text: msg.text || msg.body,
+                thread: threadInfo?.title || `Thread ${msg.thread_id}`,
+                thread_id: msg.thread_id,
+                timestamp: msg.timestamp,
+                isGroup: threadInfo?.isGroup
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Parse iris message
+     */
+    _parseIrisMessage(data) {
+        try {
+            if (data.event !== 'message_create' && !data.type?.includes('message')) {
+                return null;
+            }
+            
+            return {
+                id: data.id,
+                from: data.from_username || data.from_user_id,
+                text: data.text,
+                thread_id: data.thread_id,
+                timestamp: data.timestamp
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
     setInitOptions(initOptions) {
         if (Array.isArray(initOptions))
             initOptions = { graphQlSubs: initOptions };
@@ -134,182 +261,102 @@ class RealtimeClient extends eventemitter3_1.EventEmitter {
                 }),
                 'User-Agent': userAgent,
                 'Accept-Language': this.ig.state.language.replace('_', '-'),
-                platform: 'android',
-                ig_mqtt_route: 'django',
-                pubsub_msg_type_blacklist: 'direct, typing_type',
-                auth_cache_enabled: '0',
             },
         });
     }
-    async connect(initOptions) {
-        this.realtimeDebug('Connecting to realtime-broker...');
-        this.setInitOptions(initOptions);
-        this.realtimeDebug(`Overriding: ${Object.keys(this.initOptions?.connectOverrides || {}).join(', ')}`);
-        this._mqtt = new mqttot_1.MQTToTClient({
-            url: constants_1.REALTIME.HOST_NAME_V6,
-            payloadProvider: () => {
-                this.constructConnection();
-                if (!this.connection) {
-                    throw new mqtts_1.IllegalStateError("constructConnection() didn't create a connection");
-                }
-                return (0, shared_1.compressDeflate)(this.connection.toThrift());
+    async connect(options) {
+        this.setInitOptions(options);
+        console.log(`✅ [CONNECT] irisData: ${this.initOptions?.irisData ? 'YES' : 'NO'}`);
+        this.constructConnection();
+        const { MQTToTClient } = require("../mqttot");
+        const { compressDeflate } = require("../shared");
+        
+        // Create MQTToTClient with proper payload provider
+        this._mqtt = new MQTToTClient({
+            url: 'edge-mqtt.facebook.com',
+            payloadProvider: async () => {
+                return await compressDeflate(this.connection.toThrift());
             },
-            enableTrace: this.initOptions?.enableTrace,
-            autoReconnect: this.initOptions?.autoReconnect ?? true,
-            requirePayload: false,
-            socksOptions: this.initOptions?.socksOptions,
-            additionalOptions: this.initOptions?.additionalTlsOptions,
+            autoReconnect: true,
+            requirePayload: true,
         });
-        this.commands = new commands_1.Commands(this.mqtt);
-        this.direct = new commands_1.DirectCommands(this.mqtt);
-        this.mqtt.on('message', async (msg) => {
-            const topicNum = msg.topic;
-            const byteCount = msg.payload?.length || 0;
+        
+        // Connect to MQTT broker
+        await this._mqtt.connect();
+        
+        // CRITICAL: Initialize Commands BEFORE subscribe calls
+        this.commands = new commands_1.Commands(this._mqtt);
+        
+        this.emit('connected');
+        
+        // MQTT handler with ALL TOPICS logging
+        this._mqtt.on('message', async (msg) => {
+            const topicMap = this.mqtt?.topicMap;
+            const topic = topicMap?.get(msg.topic);
             
-            const unzipped = await (0, shared_1.tryUnzipAsync)(msg.payload);
-            const topic = constants_1.RealtimeTopicsArray.find(t => t.id === msg.topic);
-            
-            // LOG ALL INCOMING MESSAGES
-            console.log(`\n📥 [INCOMING] Topic ID: ${topicNum} (${topic?.path || 'UNKNOWN'}) | Size: ${byteCount} bytes`);
-            
-            // SPECIAL HANDLING FOR MESSAGE_SYNC (Topic 146) - MOST IMPORTANT FOR DMs
-            if (topicNum === '146') {
-                console.log('\n💬 [MESSAGE_SYNC] PARSING DM MESSAGE!');
-                try {
-                    const irisParser = topic.parser;
-                    const parsed = irisParser.parseMessage(topic, unzipped);
-                    
-                    console.log(`   ✅ Parsed ${Array.isArray(parsed) ? parsed.length : 1} items`);
-                    
-                    if (Array.isArray(parsed)) {
-                        parsed.forEach((item, idx) => {
-                            const data = item.data;
-                            if (data) {
-                                console.log(`\n   📨 Item ${idx + 1}:`);
-                                if (data.data && Array.isArray(data.data)) {
-                                    data.data.forEach((d, didx) => {
-                                        console.log(`      Data ${didx + 1}: Path=${d.path}`);
-                                        if (d.path && d.path.startsWith('/direct_v2/threads')) {
-                                            try {
-                                                const msgValue = JSON.parse(d.value);
-                                                console.log(`      💬 TEXT: "${msgValue.text || 'no text'}" | From: ${msgValue.user_id || 'unknown'}`);
-                                                const threadId = d.path.match(/\/direct_v2\/(inbox\/)?threads\/(\d+)/)?.[2];
-                                                this.emit('message', {
-                                                    message: {
-                                                        ...msgValue,
-                                                        thread_id: threadId,
-                                                        path: d.path,
-                                                    },
-                                                });
-                                            } catch(e) {
-                                                console.log(`      ⚠️ Parse JSON error: ${e.message}`);
-                                            }
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                    }
-                } catch (e) {
-                    console.log(`   ⚠️ MESSAGE_SYNC Parse Error: ${e.message}`);
-                }
-            }
+            console.log(`\n📡 [MQTT RECEIVED] Topic: ${msg.topic} (${topic?.path || 'UNKNOWN'})`);
             
             if (topic && topic.parser && !topic.noParse) {
                 try {
+                    const unzipped = await (0, shared_1.tryUnzipAsync)(msg.payload);
                     const parsedMessages = topic.parser.parseMessage(topic, unzipped);
-                    
-                    console.log(`   ✅ PARSED [${topic.path}]`);
-                    if (Array.isArray(parsedMessages)) {
-                        parsedMessages.forEach((pm, idx) => {
-                            console.log(`      [${idx + 1}] ${JSON.stringify(pm.data).substring(0, 100)}`);
-                        });
-                    } else {
-                        console.log(`      ${JSON.stringify(parsedMessages.data).substring(0, 100)}`);
-                    }
-                    
-                    this.messageDebug(`Received on ${topic.path}: ${JSON.stringify(Array.isArray(parsedMessages) ? parsedMessages.map((x) => x.data) : parsedMessages.data)}`);
+                    console.log(`   ✅ PARSED: ${topic.path}`);
                     this.emit('receive', topic, Array.isArray(parsedMessages) ? parsedMessages : [parsedMessages]);
-                } catch (e) {
-                    console.log(`   ⚠️ PARSE ERROR: ${e.message}`);
+                } catch(e) {
+                    console.log(`   ⚠️ Parse error: ${e.message}`);
                 }
-            }
-            else {
-                console.log(`   📡 RAW DATA (no parser)`);
-                this.messageDebug(`Received raw on ${topic?.path ?? msg.topic}: (${unzipped.byteLength} bytes)`);
-                this.emit('receiveRaw', msg);
-            }
-        });
-        this.mqtt.on('error', e => this.emitError(e));
-        this.mqtt.on('warning', w => this.emitWarning(w));
-        this.mqtt.on('disconnect', () => this.safeDisconnect
-            ? this.emit('disconnect')
-            : this.emitError(new errors_1.ClientDisconnectedError('MQTToTClient got disconnected.')));
-        return new Promise((resolve, reject) => {
-            this.mqtt.on('connect', async () => {
-                if (!this.initOptions) {
-                    throw new mqtts_1.IllegalStateError('No initi options given');
-                }
-                this.realtimeDebug('Connected to MQTT broker');
-                // Emit connected immediately - don't wait for subscriptions
-                this.emit('connected');
-                resolve();
-                
-                // Run subscriptions in background (non-blocking)
+            } else {
                 try {
-                    const { graphQlSubs, skywalkerSubs, irisData } = this.initOptions;
-                    this.realtimeDebug('Initializing subscriptions...');
-                    
-                    console.log(`[SUBSCRIBE] GraphQL: ${graphQlSubs?.join(', ')}`);
-                    await Promise.all([
-                        graphQlSubs && graphQlSubs.length > 0 ? this.graphQlSubscribe(graphQlSubs) : null,
-                        skywalkerSubs && skywalkerSubs.length > 0 ? this.skywalkerSubscribe(skywalkerSubs) : null,
-                    ]);
-                    
-                    // Only subscribe to Iris if explicitly provided and valid
-                    if (irisData && irisData.seq_id !== undefined) {
-                        console.log(`[SUBSCRIBE] Iris: seq_id=${irisData.seq_id}`);
-                        await this.irisSubscribe(irisData);
-                    } else {
-                        console.log(`[SUBSCRIBE] Skipping Iris (not needed for real-time DMs)`);
-                    }
-                    
-                    console.log(`[SUBSCRIBED] ✅ All subscriptions sent to Instagram`);
-                    
-                    // CRITICAL: Wait for MESSAGE_SYNC listener to be fully active (100ms buffer)
-                    // This ensures the listener is ready BEFORE we tell Instagram to send DMs
-                    console.log(`\n⏳ [SYNC] Waiting for MESSAGE_SYNC listener to activate...`);
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    
-                    // TRIGGER: Fetch inbox to tell Instagram we want DM messages on MQTT
-                    // This activates the MESSAGE_SYNC topic (146) which sends all DMs through MQTT
-                    console.log(`🔔 [TRIGGER] Calling getInbox() to activate MESSAGE_SYNC on MQTT...`);
-                    try {
-                        const inboxResponse = await this.ig.direct.getInbox();
-                        console.log(`✅ [TRIGGER] SUCCESS! Instagram now sending DMs through MQTT (topic 146)`);
-                        console.log(`   Inbox threads: ${inboxResponse.threads?.length || 0}`);
-                        console.log(`\n📡 [MQTT READY] Listening for DM messages on MESSAGE_SYNC topic...`);
-                    } catch (e) {
-                        console.log(`⚠️  [TRIGGER] Inbox fetch failed: ${e.message}`);
-                        console.log(`   MQTT still listening - try sending a DM anyway`);
-                    }
-                    
-                    this.realtimeDebug('Subscriptions initialized successfully');
-                } catch (e) {
-                    console.error(`[SUBSCRIBE ERROR] ${e.message}`);
-                    this.realtimeDebug(`Subscription error: ${e.message}`);
+                    const unzipped = await (0, shared_1.tryUnzipAsync)(msg.payload);
+                    console.log(`   📨 Raw message (${unzipped.length} bytes)`);
+                    this.emit('receiveRaw', msg);
+                } catch(e) {
+                    console.log(`   ⚠️ Decompress error: ${e.message}`);
                 }
-            });
-            this.mqtt.connect({
-                keepAlive: 20,
-                protocolLevel: 3,
-                clean: true,
-                connectDelay: 60 * 1000,
-            }).catch(e => {
-                this.emitError(e);
-                reject(e);
-            });
+            }
         });
+        this._mqtt.on('error', this.emitError);
+        await (0, shared_1.delay)(100);
+        if (this.initOptions.graphQlSubs && this.initOptions.graphQlSubs.length > 0) {
+            console.log('[SUBSCRIBE] GraphQL: ' + this.initOptions.graphQlSubs.join(', '));
+            await this.graphQlSubscribe(this.initOptions.graphQlSubs);
+        }
+        if (this.initOptions.irisData) {
+            await this.irisSubscribe(this.initOptions.irisData);
+        } else {
+            console.log('[SUBSCRIBE] Skipping Iris (not needed for real-time DMs)');
+        }
+        if ((this.initOptions.skywalkerSubs ?? []).length > 0) {
+            console.log('[SUBSCRIBE] Skywalker: ' + this.initOptions.skywalkerSubs.join(', '));
+            await this.skywalkerSubscribe(this.initOptions.skywalkerSubs);
+        }
+        console.log('[SUBSCRIBED] ✅ All subscriptions sent to Instagram');
+        console.log('\n⏳ [SYNC] Waiting for MESSAGE_SYNC listener to activate...');
+        await (0, shared_1.delay)(100);
+        console.log(`🔔 [TRIGGER] Calling getInbox() to activate MESSAGE_SYNC on MQTT...`);
+        try {
+            const inbox = await this.ig.direct.getInbox();
+            console.log(`\n✅ [TRIGGER] SUCCESS! Instagram now sending DMs through MQTT (topic 146)`);
+            console.log(`   Inbox threads: ${inbox?.inbox?.threads?.length || 0}`);
+            console.log(`\n📡 [MQTT READY] Listening for DM messages on MESSAGE_SYNC topic...`);
+            
+            // FORCE SUBSCRIBE TO TOPIC 146 EXPLICITLY
+            console.log('\n🔥 [FORCE] Subscribing to topic 146 explicitly...');
+            try {
+                await this.ig.request.send({
+                    url: '/api/v1/direct_v2/threads/get_most_recent_message/',
+                    method: 'POST',
+                });
+                console.log('✅ Force fetch complete - Messages should now stream on topic 146');
+            } catch(e) {
+                console.log(`⚠️ Force fetch error: ${e.message}`);
+            }
+        } catch (error) {
+            console.log(`⚠️  [TRIGGER] Inbox fetch failed: ${error.message}`);
+            console.log(`   MQTT still listening - try sending a DM anyway`);
+        }
+        // Setup message event handlers to emit 'message_live' events
+        this._setupMessageHandlers();
     }
     disconnect() {
         this.safeDisconnect = true;
