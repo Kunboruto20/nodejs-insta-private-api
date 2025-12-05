@@ -1,0 +1,123 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║   📱 INSTAGRAM BULK DM SENDER - Usage Guide                              ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+WHAT IT DOES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ✅ Login to your Instagram account
+2. ✅ Connect to MQTT and fetch all groups
+3. ✅ Listen to live incoming messages
+4. ✅ Show all available groups with group info
+5. ✅ Let you select which groups to message
+6. ✅ Read message text from a .txt file
+7. ✅ Send messages with custom delay between each group
+8. ✅ Track success/failure of each delivery
+
+
+QUICK START:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Install library:
+   $ npm install nodejs-insta-private-api
+
+2. Create your message in a text file (e.g., messages.txt):
+   $ echo "Hello everyone! Check this out!" > messages.txt
+
+3. Run the script:
+   $ node bulk-dm-sender.js
+
+4. Follow the prompts:
+   📧 Username: your_username
+   🔑 Password: ••••••••••
+   📨 Email: (press Enter)
+   
+   📍 Enter group numbers: 1,2,3
+   📄 Text file path: messages.txt
+   ⏱️  Delay (seconds): 5
+
+
+EXAMPLE SESSION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Got 12 conversations
+
+📊 AVAILABLE GROUPS
+  1. Marketing Team (5 users)
+  2. Development (8 users)
+  3. Sales Group (3 users)
+  4. Announcements (10 users)
+
+📍 Enter group numbers: 1,3
+
+✅ Selected 2 group(s):
+  1. Marketing Team
+  2. Sales Group
+
+📄 Text file path: messages.txt
+✅ Loaded 42 characters from file
+
+⏱️  Enter delay: 5
+
+🚀 SENDING MESSAGES
+
+📤 [1/2] Sending to: Marketing Team
+   Text: Hello everyone! Check this out!
+   ✅ Sent!
+
+   ⏳ Waiting 5 second(s)...
+
+📤 [2/2] Sending to: Sales Group
+   Text: Hello everyone! Check this out!
+   ✅ Sent!
+
+✅ DELIVERY COMPLETE
+
+📊 Summary:
+  ✅ Sent successfully: 2
+  ❌ Failed: 0
+  📈 Total attempted: 2
+
+
+FEATURES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Real-time message listening - See incoming DMs live
+✅ MQTT powered - Sub-500ms delivery
+✅ Group selection - Choose which groups to message
+✅ Batch sending - Send to multiple groups automatically
+✅ Custom delays - Set delay between messages
+✅ Text file support - Load messages from .txt files
+✅ Error handling - Shows which messages failed
+✅ Live progress - See each message as it sends
+
+
+TIPS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 Use a delay of 5-10 seconds to avoid Instagram rate limiting
+💡 Keep messages under 1000 characters
+💡 Test with 1-2 groups first before bulk messaging
+💡 Messages from .txt files can be multi-line
+💡 Group numbers are displayed in the list (1, 2, 3, etc.)
+
+
+ERROR FIXES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ "File not found: messages.txt"
+   → Make sure the file exists in the current directory
+   → Use correct file path (e.g., ./messages.txt)
+
+❌ "No valid groups selected"
+   → Make sure you enter valid group numbers
+   → Example: 1,2,3 (not 0, not 999)
+
+❌ "Request failed"
+   → Your session may have expired
+   → Delete session.json and login again
+
+
+That's it! Happy mass messaging! 🚀
