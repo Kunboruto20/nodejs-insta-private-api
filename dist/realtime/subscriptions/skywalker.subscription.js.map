@@ -1,0 +1,1 @@
+{"version":3,"file":"skywalker.subscription.js","sourceRoot":"","sources":["../../../src/realtime/subscriptions/skywalker.subscription.ts"],"names":[],"mappings":";;;AAAA,MAAa,sBAAsB;IACzB,MAAM,CAAC,SAAS,CAAC,MAAgC;QACrD,OAAO,WAAW,MAAM,EAAE,CAAC;IAC9B,CAAC;IACM,MAAM,CAAC,OAAO,CAAC,MAAgC;QACnD,OAAO,kCAAkC,MAAM,EAAE,CAAC;IACrD,CAAC;CACH;AAPD,wDAOC"}
